@@ -92,14 +92,15 @@ const FORGE_BASE_URL =
   "https://forge.butterfly-effect.dev";
 const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
 
-function loadMapScript() {
+export function loadGoogleMaps() {
+  if (window.google?.maps?.places) return Promise.resolve();
   return new Promise(resolve => {
     const script = document.createElement("script");
     script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
-      resolve(null);
+      resolve(undefined);
       script.remove(); // Clean up immediately
     };
     script.onerror = () => {
@@ -126,7 +127,7 @@ export function MapView({
   const map = useRef<google.maps.Map | null>(null);
 
   const init = usePersistFn(async () => {
-    await loadMapScript();
+    await loadGoogleMaps();
     if (!mapContainer.current) {
       console.error("Map container not found");
       return;
@@ -146,7 +147,7 @@ export function MapView({
   });
 
   useEffect(() => {
-    init();
+    loadGoogleMaps().then(init);
   }, [init]);
 
   return (

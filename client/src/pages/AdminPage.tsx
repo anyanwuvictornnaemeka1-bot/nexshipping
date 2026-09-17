@@ -5,17 +5,21 @@ import {
   Box,
   CheckCircle2,
   ChevronDown,
+  FileSpreadsheet,
   Inbox,
   LogOut,
   MessageSquare,
   Package,
+  Pencil,
   RefreshCw,
   Send,
+  Trash2,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { loadGoogleMaps } from "@/components/Map";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -55,6 +59,27 @@ export default function AdminPage() {
   const addShipmentEvent = trpc.admin.addShipmentEvent.useMutation({
     onSuccess: () => {
       toast.success("Shipment event added and status updated.");
+      overview.refetch();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const updateShipment = trpc.admin.updateShipment.useMutation({
+    onSuccess: () => {
+      toast.success("Shipment updated.");
+      overview.refetch();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const deleteShipment = trpc.admin.deleteShipment.useMutation({
+    onSuccess: () => {
+      toast.success("Shipment deleted.");
+      overview.refetch();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const bulkCreateShipments = trpc.admin.bulkCreateShipments.useMutation({
+    onSuccess: result => {
+      toast.success(`${result.ids.length} shipments imported.`);
       overview.refetch();
     },
     onError: error => toast.error(error.message),
@@ -285,31 +310,76 @@ export default function AdminPage() {
                 action={() => overview.refetch()}
                 actionLabel="Refresh"
               >
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[780px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-[#e1e7ed] text-xs uppercase tracking-[0.12em] text-[#8c9aa8]">
-                        <th className="pb-3 font-semibold">Tracking</th>
-                        <th className="pb-3 font-semibold">Route</th>
-                        <th className="pb-3 font-semibold">Status</th>
-                        <th className="pb-3 font-semibold">Updated</th>
-                        <th className="pb-3 font-semibold">Add event</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(data?.shipments ?? []).map(shipment => (
-                        <ShipmentRow
-                          key={shipment.id}
-                          shipment={shipment}
-                          pending={addShipmentEvent.isPending}
-                          onSubmit={values => addShipmentEvent.mutate(values)}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                  {!data?.shipments.length && (
-                    <EmptyState label="No shipments have been added" />
-                  )}
+                <div className="mb-6 rounded-2xl border border-dashed border-[#cbd5dd] bg-[#f6f7f9] p-4 sm:p-5">
+                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                    <div>
+                      <p className="flex items-center gap-2 text-sm font-bold">
+                        <FileSpreadsheet className="size-4 text-[#f35b24]" />
+                        Bulk import shipments
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#617083]">
+                        Upload a CSV with trackingNumber, origin, destination,
+                        shipmentType, and optional status, location, delivery,
+                        service, weight, customerEmail.
+                      </p>
+                    </div>
+                    <label className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#071b2f] px-4 text-xs font-bold text-white hover:bg-[#16344f]">
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="sr-only"
+                        disabled={bulkCreateShipments.isPending}
+                        onChange={event => {
+                          const file = event.target.files?.[0];
+                          if (file)
+                            parseShipmentCsv(file)
+                              .then(rows =>
+                                bulkCreateShipments.mutate({ shipments: rows })
+                              )
+                              .catch(error => toast.error(error.message));
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                      {bulkCreateShipments.isPending
+                        ? "Importing…"
+                        : "Choose CSV"}
+                    </label>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[780px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-[#e1e7ed] text-xs uppercase tracking-[0.12em] text-[#8c9aa8]">
+                          <th className="pb-3 font-semibold">Tracking</th>
+                          <th className="pb-3 font-semibold">Route</th>
+                          <th className="pb-3 font-semibold">Status</th>
+                          <th className="pb-3 font-semibold">Updated</th>
+                          <th className="pb-3 font-semibold">Add event</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(data?.shipments ?? []).map(shipment => (
+                          <ShipmentRow
+                            key={shipment.id}
+                            shipment={shipment}
+                            pending={addShipmentEvent.isPending}
+                            onSubmit={values => addShipmentEvent.mutate(values)}
+                            onEdit={values => updateShipment.mutate(values)}
+                            onDelete={id => {
+                              if (
+                                window.confirm(
+                                  "Delete this shipment and its event history?"
+                                )
+                              )
+                                deleteShipment.mutate({ id });
+                            }}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                    {!data?.shipments.length && (
+                      <EmptyState label="No shipments have been added" />
+                    )}
+                  </div>
                 </div>
               </Panel>
             </div>
@@ -515,6 +585,7 @@ type ShipmentFormValues = {
   trackingNumber: string;
   origin: string;
   destination: string;
+  status?: ShipmentStatus;
   currentLocation?: string;
   estimatedDelivery?: Date;
   shipmentType: "air" | "ocean" | "road" | "rail" | "multimodal";
@@ -644,6 +715,94 @@ function ShipmentForm({
   );
 }
 
+function EditShipmentForm({
+  shipment,
+  onCancel,
+  onSubmit,
+}: {
+  shipment: {
+    trackingNumber: string;
+    origin: string;
+    destination: string;
+    status: string;
+  };
+  onCancel: () => void;
+  onSubmit: (values: Partial<ShipmentFormValues>) => void;
+}) {
+  return (
+    <form
+      className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] lg:items-end"
+      onSubmit={event => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        onSubmit({
+          trackingNumber: String(form.get("trackingNumber"))
+            .trim()
+            .toUpperCase(),
+          origin: String(form.get("origin")).trim(),
+          destination: String(form.get("destination")).trim(),
+          status: String(form.get("status")) as ShipmentStatus,
+        });
+      }}
+    >
+      <Field label="Tracking number">
+        <input
+          required
+          name="trackingNumber"
+          defaultValue={shipment.trackingNumber}
+          className="admin-input"
+        />
+      </Field>
+      <Field label="Origin">
+        <input
+          required
+          name="origin"
+          defaultValue={shipment.origin}
+          className="admin-input"
+        />
+      </Field>
+      <Field label="Destination">
+        <input
+          required
+          name="destination"
+          defaultValue={shipment.destination}
+          className="admin-input"
+        />
+      </Field>
+      <Field label="Status">
+        <Select
+          name="status"
+          defaultValue={shipment.status}
+          options={[
+            ["booked", "Booked"],
+            ["in_transit", "In transit"],
+            ["customs", "Customs"],
+            ["out_for_delivery", "Out for delivery"],
+            ["delivered", "Delivered"],
+            ["exception", "Exception"],
+          ]}
+        />
+      </Field>
+      <Button
+        type="submit"
+        className="h-11 rounded-xl bg-[#13715a] text-white hover:bg-[#0d5d4a]"
+      >
+        <Pencil className="size-4" />
+        Save
+      </Button>
+      <Button
+        type="button"
+        onClick={onCancel}
+        variant="outline"
+        className="h-11 rounded-xl"
+      >
+        <ChevronDown className="size-4 rotate-90" />
+        Cancel
+      </Button>
+    </form>
+  );
+}
+
 type ShipmentStatus =
   | "booked"
   | "in_transit"
@@ -661,10 +820,67 @@ type ShipmentEventValues = {
   eventTime: Date;
 };
 
+async function parseShipmentCsv(file: File): Promise<ShipmentFormValues[]> {
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2)
+    throw new Error("CSV must include a header row and at least one shipment.");
+  const headers = parseCsvLine(lines[0]).map(value => value.trim());
+  const required = ["trackingNumber", "origin", "destination", "shipmentType"];
+  const missing = required.filter(field => !headers.includes(field));
+  if (missing.length)
+    throw new Error(`CSV is missing required columns: ${missing.join(", ")}`);
+  const rows = lines.slice(1).map(line => {
+    const values = parseCsvLine(line);
+    const row = Object.fromEntries(
+      headers.map((header, index) => [header, values[index] ?? ""])
+    );
+    return {
+      trackingNumber: row.trackingNumber.trim().toUpperCase(),
+      origin: row.origin.trim(),
+      destination: row.destination.trim(),
+      shipmentType:
+        row.shipmentType.trim() as ShipmentFormValues["shipmentType"],
+      status: (row.status || undefined) as ShipmentStatus | undefined,
+      currentLocation: row.currentLocation || undefined,
+      estimatedDelivery: row.estimatedDelivery
+        ? new Date(`${row.estimatedDelivery}T12:00:00`)
+        : undefined,
+      serviceLevel: row.serviceLevel || undefined,
+      weight: row.weight || undefined,
+      customerEmail: row.customerEmail || undefined,
+    };
+  });
+  if (rows.length > 500)
+    throw new Error("CSV import is limited to 500 shipments per upload.");
+  return rows;
+}
+
+function parseCsvLine(line: string) {
+  const values: string[] = [];
+  let value = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"' && line[index + 1] === '"') {
+      value += '"';
+      index += 1;
+    } else if (character === '"') quoted = !quoted;
+    else if (character === "," && !quoted) {
+      values.push(value);
+      value = "";
+    } else value += character;
+  }
+  values.push(value);
+  return values;
+}
+
 function ShipmentRow({
   shipment,
   pending,
   onSubmit,
+  onEdit,
+  onDelete,
 }: {
   shipment: {
     id: number;
@@ -676,8 +892,11 @@ function ShipmentRow({
   };
   pending: boolean;
   onSubmit: (values: ShipmentEventValues) => void;
+  onEdit: (values: { id: number; data: Partial<ShipmentFormValues> }) => void;
+  onDelete: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   return (
     <>
       <tr className="border-b border-[#e1e7ed] last:border-0">
@@ -694,18 +913,50 @@ function ShipmentRow({
           {new Date(shipment.lastUpdate).toLocaleDateString()}
         </td>
         <td className="py-4">
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-bold text-[#c94714]"
-          >
-            Update{" "}
-            <ChevronDown
-              className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-            />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(!editing)}
+              className="grid size-8 place-items-center rounded-lg bg-[#eaf0f3] text-[#122235]"
+              aria-label="Edit shipment"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(shipment.id)}
+              className="grid size-8 place-items-center rounded-lg bg-[#fff0e9] text-[#c94714]"
+              aria-label="Delete shipment"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(!open)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#d7eee8] px-3 py-2 text-xs font-bold text-[#13715a]"
+            >
+              Event{" "}
+              <ChevronDown
+                className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
         </td>
       </tr>
+      {editing && (
+        <tr className="border-b border-[#e1e7ed]">
+          <td colSpan={5} className="bg-[#f6f7f9] p-4">
+            <EditShipmentForm
+              shipment={shipment}
+              onCancel={() => setEditing(false)}
+              onSubmit={values => {
+                onEdit({ id: shipment.id, data: values });
+                setEditing(false);
+              }}
+            />
+          </td>
+        </tr>
+      )}
       {open && (
         <tr className="border-b border-[#e1e7ed]">
           <td colSpan={5} className="bg-[#f6f7f9] p-4">
@@ -730,6 +981,32 @@ function EventForm({
   pending: boolean;
   onSubmit: (values: ShipmentEventValues) => void;
 }) {
+  const locationRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    let autocomplete: google.maps.places.Autocomplete | undefined;
+    loadGoogleMaps()
+      .then(() => {
+        if (locationRef.current && window.google?.maps?.places) {
+          autocomplete = new window.google.maps.places.Autocomplete(
+            locationRef.current,
+            { fields: ["formatted_address", "name"] }
+          );
+          autocomplete.addListener("place_changed", () => {
+            const place = autocomplete?.getPlace();
+            if (locationRef.current && place) {
+              locationRef.current.value =
+                place.formatted_address ?? place.name ?? "";
+            }
+          });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      if (autocomplete) {
+        window.google?.maps?.event.clearInstanceListeners(autocomplete);
+      }
+    };
+  }, []);
   return (
     <form
       className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end"
@@ -771,8 +1048,10 @@ function EventForm({
       </Field>
       <Field label="Location">
         <input
+          ref={locationRef}
           name="location"
-          placeholder="Chicago, IL"
+          placeholder="Search a city, port, or facility"
+          autoComplete="off"
           className="admin-input"
         />
       </Field>
@@ -827,15 +1106,17 @@ function Field({
 function Select({
   name,
   options,
+  defaultValue,
 }: {
   name: string;
   options: Array<[string, string]>;
+  defaultValue?: string;
 }) {
   return (
     <div className="relative">
       <select
         name={name}
-        defaultValue={options[0][0]}
+        defaultValue={defaultValue ?? options[0][0]}
         className="admin-input appearance-none pr-9"
       >
         {options.map(([value, label]) => (

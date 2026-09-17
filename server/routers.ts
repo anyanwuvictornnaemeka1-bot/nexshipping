@@ -7,7 +7,9 @@ import {
   addShipmentEvent,
   createContact,
   createQuote,
+  createShipments,
   createShipment,
+  deleteShipment,
   findShipmentByTrackingNumber,
   getAdminOverview,
   getPublishedContent,
@@ -15,10 +17,32 @@ import {
   subscribeToNewsletter,
   updateContactStatus,
   updateQuoteStatus,
+  updateShipment,
 } from "./db";
 
 const email = z.string().trim().email().max(320);
 const nonEmpty = (max: number) => z.string().trim().min(1).max(max);
+const shipmentType = z.enum(["air", "ocean", "road", "rail", "multimodal"]);
+const shipmentStatus = z.enum([
+  "booked",
+  "in_transit",
+  "customs",
+  "out_for_delivery",
+  "delivered",
+  "exception",
+]);
+const shipmentInput = z.object({
+  trackingNumber: nonEmpty(32),
+  origin: nonEmpty(160),
+  destination: nonEmpty(160),
+  status: shipmentStatus.optional(),
+  currentLocation: z.string().trim().max(160).optional(),
+  estimatedDelivery: z.date().optional(),
+  shipmentType,
+  serviceLevel: z.string().trim().max(80).optional(),
+  weight: z.string().trim().max(80).optional(),
+  customerEmail: email.optional(),
+});
 
 export const appRouter = router({
   system: systemRouter,
@@ -118,35 +142,47 @@ export const appRouter = router({
         return { success: true };
       }),
     createShipment: adminProcedure
+      .input(shipmentInput)
+      .mutation(async ({ input }) => ({
+        id: await createShipment({
+          ...input,
+          status: input.status ?? "booked",
+        }),
+        success: true,
+      })),
+    updateShipment: adminProcedure
       .input(
         z.object({
-          trackingNumber: nonEmpty(32),
-          origin: nonEmpty(160),
-          destination: nonEmpty(160),
-          currentLocation: z.string().trim().max(160).optional(),
-          estimatedDelivery: z.date().optional(),
-          shipmentType: z.enum(["air", "ocean", "road", "rail", "multimodal"]),
-          serviceLevel: z.string().trim().max(80).optional(),
-          weight: z.string().trim().max(80).optional(),
-          customerEmail: email.optional(),
+          id: z.number().int().positive(),
+          data: shipmentInput.partial(),
         })
       )
+      .mutation(async ({ input }) => {
+        await updateShipment(input.id, input.data);
+        return { success: true };
+      }),
+    deleteShipment: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        await deleteShipment(input.id);
+        return { success: true };
+      }),
+    bulkCreateShipments: adminProcedure
+      .input(z.object({ shipments: z.array(shipmentInput).min(1).max(500) }))
       .mutation(async ({ input }) => ({
-        id: await createShipment(input),
+        ids: await createShipments(
+          input.shipments.map(shipment => ({
+            ...shipment,
+            status: shipment.status ?? "booked",
+          }))
+        ),
         success: true,
       })),
     addShipmentEvent: adminProcedure
       .input(
         z.object({
           shipmentId: z.number().int().positive(),
-          status: z.enum([
-            "booked",
-            "in_transit",
-            "customs",
-            "out_for_delivery",
-            "delivered",
-            "exception",
-          ]),
+          status: shipmentStatus,
           title: nonEmpty(160),
           description: z.string().trim().max(2000).optional(),
           location: z.string().trim().max(160).optional(),

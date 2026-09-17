@@ -11,6 +11,8 @@ Nexshipping is a production-oriented global shipping and logistics website built
 - Protected admin operations portal at `/admin`, gated by the authenticated user's `admin` role.
 - Admin overview for shipment records, quote request status management, contact message status management, and subscriber count.
 - Admin shipment workspace with a protected create-shipment form and inline event form for status, milestone title, location, event time, and description. Adding an event also updates the shipment’s current status, location, and last-update timestamp used by public tracking.
+- Full shipment lifecycle controls with inline editing, deletion with event-history cleanup, and CSV bulk import for up to 500 shipments per upload.
+- Event locations use the configured Google Places autocomplete integration, so operators can select a canonical city, port, or facility name instead of typing an ambiguous location.
 - SEO metadata, Open Graph tags, `robots.txt`, and sitemap configuration.
 
 ## Local setup
@@ -46,6 +48,8 @@ The main tables are `users`, `shipments`, `shipment_events`, `quotes`, `contacts
 For a real production rollout, operations should add shipment and shipment-event records through the protected admin workflow or an authenticated internal integration. The public tracking page intentionally returns an empty state when a number does not exist; it does not fabricate tracking data.
 
 From `/admin`, choose **Shipments** to create a shipment. After it is listed, choose **Update** beside a shipment to add a milestone. The event form supports the full shipment status lifecycle: booked, in transit, customs clearance, out for delivery, delivered, and exception. The server enforces admin authorization and validates all fields before persistence.
+
+For bulk import, upload a CSV containing `trackingNumber`, `origin`, `destination`, and `shipmentType` columns. Optional columns are `status`, `currentLocation`, `estimatedDelivery` (`YYYY-MM-DD`), `serviceLevel`, `weight`, and `customerEmail`. Imports are capped at 500 rows and invalid files are rejected before the database mutation runs.
 
 ## Admin setup
 

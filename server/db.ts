@@ -177,6 +177,33 @@ export async function createShipment(input: typeof shipments.$inferInsert) {
   return result[0].insertId;
 }
 
+export async function updateShipment(
+  id: number,
+  input: Partial<typeof shipments.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not configured");
+  await db.update(shipments).set(input).where(eq(shipments.id, id));
+}
+
+export async function deleteShipment(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not configured");
+  await db.delete(shipmentEvents).where(eq(shipmentEvents.shipmentId, id));
+  await db.delete(shipments).where(eq(shipments.id, id));
+}
+
+export async function createShipments(
+  inputs: Array<typeof shipments.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not configured");
+  if (inputs.length === 0) return [];
+  const result = await db.insert(shipments).values(inputs);
+  const firstId = Number(result[0].insertId);
+  return inputs.map((_, index) => firstId + index);
+}
+
 export async function addShipmentEvent(
   input: typeof shipmentEvents.$inferInsert
 ) {

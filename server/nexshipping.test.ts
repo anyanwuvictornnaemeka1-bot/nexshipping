@@ -75,4 +75,21 @@ describe("nexshipping public procedures", () => {
       })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("protects shipment editing and deletion from unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(createContext());
+    await expect(
+      caller.admin.updateShipment({ id: 1, data: { origin: "Chicago" } })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.admin.deleteShipment({ id: 1 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("rejects empty bulk imports before database work", async () => {
+    const caller = appRouter.createCaller(createContext(adminUser));
+    await expect(
+      caller.admin.bulkCreateShipments({ shipments: [] })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
 });
