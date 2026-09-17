@@ -79,7 +79,7 @@ The audited change set includes the following source, migration, verification, a
 | Frontend and SEO | `client/index.html`, `client/public/robots.txt`, `client/public/sitemap.xml`, `client/src/App.tsx`, `client/src/components/Map.tsx`, `client/src/components/SiteLayout.tsx`, `client/src/const.ts`, `client/src/pages/AdminPage.tsx`, `client/src/pages/ContentPages.tsx`, `client/src/pages/CustomerDashboardPage.tsx`, `client/src/pages/LoginPage.tsx`, `client/src/pages/QuotePage.tsx`, `client/src/pages/TrackPage.tsx` |
 | Backend and security | `server/_core/cookies.ts`, `server/_core/env.ts`, `server/_core/index.ts`, `server/_core/notification.ts`, `server/_core/oauth.ts`, `server/_core/sdk.ts`, `server/_core/storageProxy.ts`, `server/db.ts`, `server/routers.ts` |
 | Database and shared policy | `drizzle/schema.ts`, `drizzle/0003_first_chamber.sql`, `drizzle/meta/0003_snapshot.json`, `drizzle/meta/_journal.json`, `shared/const.ts` |
-| Tests and tooling | `server/auth.logout.test.ts`, `server/env.test.ts`, `server/nexshipping.test.ts`, `scripts/smoke-check.mjs`, `vite.config.ts`, `package.json` |
+| Tests and tooling | `server/auth.logout.test.ts`, `server/env.test.ts`, `server/nexshipping.test.ts`, `scripts/smoke-check.mjs`, `scripts/verify-integrations.mjs`, `vite.config.ts`, `package.json` |
 | Audit documentation | `todo.md`, `audit-visual-findings.txt`, `PRODUCTION_AUDIT_REPORT.md` |
 
 ## Required environment variables
@@ -115,6 +115,12 @@ For production operations, configure edge/WAF rate limiting, centralized logs an
 ## Remaining issues and required follow-up
 
 The JWT secret deployment blocker has been resolved by storing the generated secret as `NEXSHIPPING_JWT_SECRET` and restarting the server. Direct customer-facing email is not implemented; only owner notifications are attempted. Provider delivery, Maps quota/restriction settings, DNS, TLS, and any remaining credential rotation remain external operational checks. The in-process limiter is not a substitute for distributed edge enforcement. A final authenticated end-to-end test should be run in the production domain using a designated non-production test account and records rather than shared production-like PII.
+
+## Follow-up integration verification
+
+The configured Forge owner-notification path was exercised with a clearly labeled non-production verification payload and returned `accepted`. The application-side Maps configuration is present and uses the Forge Maps proxy; the non-browser proxy probe returned HTTP 403, so Google/Forge provider restrictions or origin authorization still require console-side correction and a browser-domain verification. No Google server key was exposed by the application.
+
+Transactional customer email was not added because no Resend, SendGrid, Postmark, or custom email provider and sender-domain configuration is connected. Edge/WAF rate limiting was not added because no deployment edge provider or production domain is configured. The application’s existing in-process rate limiter remains active; provider-specific email and WAF configuration must be completed at deployment level once those choices and credentials are supplied.
 
 ## Commit and checkpoint identifiers
 
