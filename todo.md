@@ -23,6 +23,7 @@
 - [x] Add `/health`, `/healthz`, and database-backed `/readyz` endpoints.
 - [x] Add security headers, production CSP, CSRF origin checks, per-IP API/form rate limits, smaller body limits, exact production port binding, graceful shutdown, and storage-key validation.
 - [x] Add production environment validation, require a strong JWT secret, reduce session lifetime to 30 days, and use SameSite=Lax cookies.
+- [x] Store a generated 32-character secret as `NEXSHIPPING_JWT_SECRET`, restart the server, and verify compiled production health/readiness.
 - [x] Add a working news detail route, mobile admin section navigation, accessible labels and FAQ disclosure semantics, tracking validation, explicit error states, dynamic metadata, canonical URLs, and absolute crawler URLs.
 - [x] Remove the obsolete package-level pnpm patch warning and add stable vendor chunk splitting.
 - [x] Add regression coverage for empty mutations, protected procedures, and missing admin records.
@@ -31,16 +32,15 @@
 
 - [x] `pnpm check` passed.
 - [x] `pnpm lint` passed with zero errors and zero warnings.
-- [x] Vitest passed: 2 test files, 15 tests.
+- [x] Vitest passed: 3 test files, 18 tests, including configured-secret sign/verify coverage.
 - [x] Route/API/crawler smoke checks passed: health, readiness, all public/private SPA routes, tracking API, robots.txt, and sitemap.xml.
 - [x] `pnpm build` passed. The optimized build split framework/UI/data vendors; the largest remaining JS chunk is approximately 482 kB (145 kB gzip).
-- [x] Compiled production runtime passed with a temporary strong secret: `/health` and `/readyz` returned 200 JSON and production security headers/CSP were present.
-- [x] Compiled production runtime correctly failed closed with the active short JWT secret.
+- [x] Compiled production runtime passed with the securely stored project-scoped secret: `/health` and `/readyz` returned 200 JSON and production security headers/CSP were present.
 - [x] Mobile screenshot review passed for homepage, tracking, news index/detail, login, customer dashboard, and admin.
 
 ## Remaining operational blockers and caveats
 
-- The active deployment environment currently has a JWT_SECRET shorter than the new 32-character production minimum. Production startup intentionally fails closed until a strong secret is provisioned.
+- The platform-managed built-in `JWT_SECRET` remains non-editable; the application uses the securely stored `NEXSHIPPING_JWT_SECRET` override, which takes precedence and meets the 32-character minimum.
 - Direct end-user email delivery is not configured. Quote/contact submissions notify the project owner through the configured Manus notification service; a transactional email provider is still required for customer-facing email confirmations.
 - Credential rotation, DNS verification for `https://nexshipping.com`, Google Maps quota/restriction verification, and external provider delivery tests require access to production consoles and were not performed from this sandbox.
 - The in-process rate limiter is defense-in-depth only. Production should also enforce edge/WAF limits for multi-instance deployments.

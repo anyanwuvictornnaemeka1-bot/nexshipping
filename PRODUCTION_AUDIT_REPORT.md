@@ -8,7 +8,7 @@
 
 ## Executive conclusion
 
-The audit identified and remediated multiple production-impacting defects. The audited source now passes TypeScript validation, ESLint, the complete Vitest suite, route/API/crawler smoke checks, the optimized production build, and compiled production runtime probes when valid production configuration is supplied. The application is **not yet eligible for an unqualified production-ready claim in the active environment** because the current `JWT_SECRET` is shorter than the enforced 32-character minimum. The server correctly refuses to start in that state. A strong secret must be provisioned before deployment.
+The audit identified and remediated multiple production-impacting defects. The audited source now passes TypeScript validation, ESLint, the complete Vitest suite, route/API/crawler smoke checks, the optimized production build, and compiled production runtime probes. A cryptographically random 32-character secret is now stored securely as `NEXSHIPPING_JWT_SECRET`, which takes precedence over the platform-managed built-in `JWT_SECRET`. The application now starts and passes production health/readiness probes with the rotated secret.
 
 The audit also found external operational work that cannot be completed from this sandbox: credential rotation, DNS and canonical-domain verification, Google Maps quota/restriction verification, and end-to-end delivery testing through the external notification/provider consoles. Direct customer-facing transactional email is not configured; quote and contact submissions now attempt owner notification through the configured Manus notification service and return an explicit delivery flag.
 
@@ -18,14 +18,13 @@ The audit also found external operational work that cannot be completed from thi
 |---|---:|---|
 | TypeScript compiler | Passed | `pnpm check` completed with exit code 0. |
 | ESLint | Passed | `pnpm lint` completed with zero errors and zero warnings. |
-| Vitest | Passed | 2 test files, 15 tests passed. |
+| Vitest | Passed | 3 test files, 18 tests passed, including the configured-secret sign/verify regression test. |
 | Public/private route smoke checks | Passed | `/`, `/about`, `/services`, `/tracking`, `/quote`, `/contact`, `/faq`, `/news`, `/privacy`, `/terms`, `/login`, `/dashboard`, and `/admin` returned 200. |
 | Health and readiness probes | Passed | `/health`, `/healthz`, and `/readyz` returned JSON health responses in the live preview; compiled production runtime returned 200 with valid configuration. |
 | Tracking API smoke check | Passed | Unknown tracking number returned a successful null response rather than fabricated data. |
 | Crawler files | Passed | `robots.txt` and `sitemap.xml` returned 200; sitemap URLs are absolute canonical URLs. |
 | Production build | Passed | `pnpm build` completed successfully. The largest remaining JavaScript chunk is approximately 482 kB, 145 kB gzip, after vendor splitting. |
-| Compiled production runtime with valid temporary secret | Passed | Server started on port 3101; health, readiness, root response, security headers, and production CSP were verified. |
-| Compiled production runtime with active environment | Blocked as intended | Startup failed closed with `JWT_SECRET must be at least 32 characters in production.` |
+| Compiled production runtime with rotated project secret | Passed | Server started on port 3101; health, readiness, security headers, and production CSP were verified. |
 | Responsive visual review | Passed for captured viewports | Mobile screenshots covered the homepage, tracking, news index/detail, login, customer dashboard, and admin portal at 375x812. |
 | Authenticated end-user OAuth mutation flow | Not fully executed | No production OAuth browser session was used to create or modify shared PII records. Protected routes and denial paths were tested without modifying shared records. |
 
@@ -39,7 +38,7 @@ The audit also found external operational work that cannot be completed from thi
 | Audit-log integrity | Delete audit records could be written before a delete that later failed, creating misleading history. | Deletion now verifies and completes the delete before writing the audit entry. | Regression test and source review passed. |
 | Quote/contact operations | Submissions persisted but did not notify the project owner, and upstream notification could hang. | Added owner notification attempts after persistence, explicit `notificationDelivered` response state, and a five-second upstream timeout. | TypeScript, tests, and live API path review passed; provider delivery still requires external-console verification. |
 | Health checks | `/health` was handled by the SPA fallback instead of returning a health response. | Added `/health` and `/healthz` JSON endpoints and a database-backed `/readyz` endpoint. | Live preview and compiled production runtime probes passed. |
-| Environment failures | Missing or weak production configuration failed late or allowed unsafe startup assumptions. | Added fail-closed production validation for database, JWT, OAuth, owner identity, and built-in Forge credentials; enforced a minimum 32-character JWT secret. | Compiled runtime correctly failed with the active weak secret and passed with a temporary strong secret. |
+| Environment failures | Missing or weak production configuration failed late or allowed unsafe startup assumptions. | Added fail-closed production validation for database, JWT, OAuth, owner identity, and built-in Forge credentials; enforced a minimum 32-character JWT secret; added the editable `NEXSHIPPING_JWT_SECRET` override because the built-in variable is platform-managed. | Configured-secret regression test passed; compiled runtime passed with the securely stored project-scoped secret. |
 | Session security | Sessions used a one-year lifetime and secure cookies used `SameSite=None`. | Reduced default session lifetime to 30 days and changed session/state cookies to `SameSite=Lax`, preserving secure transport behavior. | Logout cookie regression test passed; source review completed. |
 | Request security | No explicit CSRF origin check, security headers, body-size limit, or API rate limit was present. | Added same-origin checks for non-GET tRPC requests, security headers, production CSP, one-megabyte body limits, per-IP limits, stricter limits for public form mutations, and bounded limiter memory. | Header probes, production runtime probe, TypeScript, lint, and smoke checks passed. The in-process limiter remains a defense-in-depth layer for multi-instance deployments. |
 | Storage proxy | Arbitrary path-like storage keys were accepted by the proxy. | Added key validation rejecting absolute paths, traversal markers, and unsafe characters. | TypeScript and build passed. |
@@ -67,7 +66,7 @@ Admin update, delete, and event procedures now return `NOT_FOUND` for missing re
 
 The server disables the Express `X-Powered-By` header, sets `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, HSTS on HTTPS, and a production Content Security Policy. Non-GET tRPC requests with an `Origin` header must match the request origin. API requests receive an in-process per-IP limit, while quote/contact/newsletter mutations receive a stricter limit. Request bodies are limited to one megabyte.
 
-Production startup requires `JWT_SECRET` of at least 32 characters, a database URL, OAuth application/server configuration, owner identity, and built-in Forge credentials. Session and OAuth state cookies use `HttpOnly`/`Secure` as appropriate and `SameSite=Lax`; session lifetime is 30 days. Storage proxy keys are validated before signed-URL retrieval.
+Production startup requires `NEXSHIPPING_JWT_SECRET` or `JWT_SECRET` of at least 32 characters, a database URL, OAuth application/server configuration, owner identity, and built-in Forge credentials. Session and OAuth state cookies use `HttpOnly`/`Secure` as appropriate and `SameSite=Lax`; session lifetime is 30 days. Storage proxy keys are validated before signed-URL retrieval.
 
 These protections do not replace edge controls. A production deployment should still use a managed WAF/rate limiter, rotate any previously exposed credentials, restrict Google Maps keys by origin/API, and monitor notification failures.
 
@@ -80,7 +79,7 @@ The audited change set includes the following source, migration, verification, a
 | Frontend and SEO | `client/index.html`, `client/public/robots.txt`, `client/public/sitemap.xml`, `client/src/App.tsx`, `client/src/components/Map.tsx`, `client/src/components/SiteLayout.tsx`, `client/src/const.ts`, `client/src/pages/AdminPage.tsx`, `client/src/pages/ContentPages.tsx`, `client/src/pages/CustomerDashboardPage.tsx`, `client/src/pages/LoginPage.tsx`, `client/src/pages/QuotePage.tsx`, `client/src/pages/TrackPage.tsx` |
 | Backend and security | `server/_core/cookies.ts`, `server/_core/env.ts`, `server/_core/index.ts`, `server/_core/notification.ts`, `server/_core/oauth.ts`, `server/_core/sdk.ts`, `server/_core/storageProxy.ts`, `server/db.ts`, `server/routers.ts` |
 | Database and shared policy | `drizzle/schema.ts`, `drizzle/0003_first_chamber.sql`, `drizzle/meta/0003_snapshot.json`, `drizzle/meta/_journal.json`, `shared/const.ts` |
-| Tests and tooling | `server/auth.logout.test.ts`, `server/nexshipping.test.ts`, `scripts/smoke-check.mjs`, `vite.config.ts`, `package.json` |
+| Tests and tooling | `server/auth.logout.test.ts`, `server/env.test.ts`, `server/nexshipping.test.ts`, `scripts/smoke-check.mjs`, `vite.config.ts`, `package.json` |
 | Audit documentation | `todo.md`, `audit-visual-findings.txt`, `PRODUCTION_AUDIT_REPORT.md` |
 
 ## Required environment variables
@@ -90,7 +89,7 @@ The following variables are required for a production deployment:
 | Variable | Requirement | Purpose |
 |---|---|---|
 | `DATABASE_URL` | Required | MySQL/TiDB application database. |
-| `JWT_SECRET` | Required; at least 32 characters | Session signing secret. Rotate any prior weak or exposed value. |
+| `NEXSHIPPING_JWT_SECRET` or `JWT_SECRET` | Required; at least 32 characters | Session signing secret. The project-scoped variable takes precedence because the platform-managed `JWT_SECRET` cannot be edited through the project secrets tool. |
 | `VITE_APP_ID` | Required | OAuth application/project ID, used by server and client build. |
 | `OAUTH_SERVER_URL` | Required; absolute URL | OAuth token and user-information service base URL. |
 | `OWNER_OPEN_ID` | Required | Identifies the owner/admin account. |
@@ -115,8 +114,8 @@ For production operations, configure edge/WAF rate limiting, centralized logs an
 
 ## Remaining issues and required follow-up
 
-The active environment’s short JWT secret is a deployment blocker by design. Direct customer-facing email is not implemented; only owner notifications are attempted. Provider delivery, Maps quota/restriction settings, DNS, TLS, and credential rotation remain external operational checks. The in-process limiter is not a substitute for distributed edge enforcement. A final authenticated end-to-end test should be run after provisioning valid production credentials, using a designated non-production test account and records rather than shared production-like PII.
+The JWT secret deployment blocker has been resolved by storing the generated secret as `NEXSHIPPING_JWT_SECRET` and restarting the server. Direct customer-facing email is not implemented; only owner notifications are attempted. Provider delivery, Maps quota/restriction settings, DNS, TLS, and any remaining credential rotation remain external operational checks. The in-process limiter is not a substitute for distributed edge enforcement. A final authenticated end-to-end test should be run in the production domain using a designated non-production test account and records rather than shared production-like PII.
 
 ## Commit and checkpoint identifiers
 
-The audited source, migration, tests, tooling, and report were committed and pushed to GitHub in commits [`a8eea44`](https://github.com/anyanwuvictornnaemeka1-bot/nexshipping/commit/a8eea44) and [`3da0d4b`](https://github.com/anyanwuvictornnaemeka1-bot/nexshipping/commit/3da0d4b). WebDev checkpoint [`a017d393`](manus-webdev://a017d393) was saved after the full audit verification pass; the final delivery checkpoint follows the documentation-only completion update.
+The audited source, migration, tests, tooling, and report were committed and pushed to GitHub in commits [`a8eea44`](https://github.com/anyanwuvictornnaemeka1-bot/nexshipping/commit/a8eea44), [`3da0d4b`](https://github.com/anyanwuvictornnaemeka1-bot/nexshipping/commit/3da0d4b), and [`60507cb`](https://github.com/anyanwuvictornnaemeka1-bot/nexshipping/commit/60507cb). The secret override support and regression test are included in the current WebDev state; the final checkpoint identifier is recorded after the next checkpoint operation.
