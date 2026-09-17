@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   blogPosts,
@@ -26,6 +26,18 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function checkDatabaseConnection() {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    await db.execute(sql`select 1`);
+    return true;
+  } catch (error) {
+    console.warn("[Database] Readiness check failed:", error);
+    return false;
+  }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -76,7 +88,17 @@ export async function findShipmentByTrackingNumber(trackingNumber: string) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db
-    .select()
+    .select({
+      id: shipments.id,
+      trackingNumber: shipments.trackingNumber,
+      status: shipments.status,
+      origin: shipments.origin,
+      destination: shipments.destination,
+      currentLocation: shipments.currentLocation,
+      estimatedDelivery: shipments.estimatedDelivery,
+      shipmentType: shipments.shipmentType,
+      serviceLevel: shipments.serviceLevel,
+    })
     .from(shipments)
     .where(eq(shipments.trackingNumber, trackingNumber))
     .limit(1);
@@ -86,7 +108,28 @@ export async function findShipmentByTrackingNumber(trackingNumber: string) {
     .from(shipmentEvents)
     .where(eq(shipmentEvents.shipmentId, result[0].id))
     .orderBy(desc(shipmentEvents.eventTime));
-  return { shipment: result[0], events };
+  return {
+    shipment: result[0],
+    events: events.map(event => ({
+      id: event.id,
+      status: event.status,
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      eventTime: event.eventTime,
+    })),
+  };
+}
+
+export async function getPublishedPostBySlug(slug: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(blogPosts)
+    .where(and(eq(blogPosts.slug, slug), eq(blogPosts.published, true)))
+    .limit(1);
+  return result[0];
 }
 
 export async function createQuote(input: typeof quotes.$inferInsert) {
@@ -166,20 +209,34 @@ export async function getAdminOverview() {
   };
 }
 
-export async function getCustomerDashboard(email: string) {
+export async function getCustomerDashboard(email: string, openId: string) {
   const db = await getDb();
-  if (!db || !email) return { shipments: [], quotes: [] };
+  if (!db) return { shipments: [], quotes: [] };
+  const legacyShipmentOwnership = email
+    ? and(isNull(shipments.customerOpenId), eq(shipments.customerEmail, email))
+    : sql`false`;
+  const legacyQuoteOwnership = email
+    ? and(isNull(quotes.customerOpenId), eq(quotes.email, email))
+    : sql`false`;
+  const ownership = or(
+    eq(shipments.customerOpenId, openId),
+    legacyShipmentOwnership
+  );
+  const quoteOwnership = or(
+    eq(quotes.customerOpenId, openId),
+    legacyQuoteOwnership
+  );
   const [shipmentRows, quoteRows] = await Promise.all([
     db
       .select()
       .from(shipments)
-      .where(eq(shipments.customerEmail, email))
+      .where(ownership)
       .orderBy(desc(shipments.updatedAt))
       .limit(50),
     db
       .select()
       .from(quotes)
-      .where(eq(quotes.email, email))
+      .where(quoteOwnership)
       .orderBy(desc(quotes.createdAt))
       .limit(50),
   ]);
@@ -201,7 +258,8 @@ export async function updateQuoteStatus(
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
-  await db.update(quotes).set({ status }).where(eq(quotes.id, id));
+  const result = await db.update(quotes).set({ status }).where(eq(quotes.id, id));
+  return Number(result[0]?.affectedRows ?? 0) > 0;
 }
 
 export async function updateContactStatus(
@@ -210,7 +268,11 @@ export async function updateContactStatus(
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
-  await db.update(contacts).set({ status }).where(eq(contacts.id, id));
+  const result = await db
+    .update(contacts)
+    .set({ status })
+    .where(eq(contacts.id, id));
+  return Number(result[0]?.affectedRows ?? 0) > 0;
 }
 
 export async function createShipment(input: typeof shipments.$inferInsert) {
@@ -226,14 +288,16 @@ export async function updateShipment(
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
-  await db.update(shipments).set(input).where(eq(shipments.id, id));
+  const result = await db.update(shipments).set(input).where(eq(shipments.id, id));
+  return Number(result[0]?.affectedRows ?? 0) > 0;
 }
 
 export async function deleteShipment(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
   await db.delete(shipmentEvents).where(eq(shipmentEvents.shipmentId, id));
-  await db.delete(shipments).where(eq(shipments.id, id));
+  const result = await db.delete(shipments).where(eq(shipments.id, id));
+  return Number(result[0]?.affectedRows ?? 0) > 0;
 }
 
 export async function createShipments(
@@ -242,9 +306,13 @@ export async function createShipments(
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
   if (inputs.length === 0) return [];
-  const result = await db.insert(shipments).values(inputs);
-  const firstId = Number(result[0].insertId);
-  return inputs.map((_, index) => firstId + index);
+  await db.insert(shipments).values(inputs);
+  const inserted = await db
+    .select({ id: shipments.id, trackingNumber: shipments.trackingNumber })
+    .from(shipments)
+    .where(inArray(shipments.trackingNumber, inputs.map(item => item.trackingNumber)));
+  const ids = new Map(inserted.map(row => [row.trackingNumber, row.id]));
+  return inputs.map(input => ids.get(input.trackingNumber)).filter((id): id is number => id !== undefined);
 }
 
 export async function addShipmentEvent(
@@ -252,16 +320,24 @@ export async function addShipmentEvent(
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
-  const result = await db.insert(shipmentEvents).values(input);
-  await db
-    .update(shipments)
-    .set({
-      lastUpdate: input.eventTime,
-      currentLocation: input.location,
-      status: input.status as any,
-    })
-    .where(eq(shipments.id, input.shipmentId));
-  return result[0].insertId;
+  return db.transaction(async tx => {
+    const existing = await tx
+      .select({ id: shipments.id })
+      .from(shipments)
+      .where(eq(shipments.id, input.shipmentId))
+      .limit(1);
+    if (!existing[0]) return null;
+    const result = await tx.insert(shipmentEvents).values(input);
+    await tx
+      .update(shipments)
+      .set({
+        lastUpdate: input.eventTime,
+        currentLocation: input.location,
+        status: input.status as any,
+      })
+      .where(eq(shipments.id, input.shipmentId));
+    return result[0].insertId;
+  });
 }
 
 export async function getShipmentCount() {

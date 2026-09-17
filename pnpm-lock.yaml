@@ -6,11 +6,6 @@ settings:
 
 pnpmfileChecksum: sha256-i+8GS/hS0dwoJ/6CV2Ck0VyGEetDxmXtR5FJe0z4k1M=
 
-patchedDependencies:
-  wouter@3.7.1:
-    hash: 5fe1e907696b93b78856a93506d2e19fb5e991ef426c4b1554e4b755f5eb87e1
-    path: patches/wouter@3.7.1.patch
-
 importers:
 
   .:
@@ -209,7 +204,7 @@ importers:
         version: 1.1.2(@types/react-dom@19.2.1(@types/react@19.2.1))(@types/react@19.2.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       wouter:
         specifier: ^3.3.5
-        version: 3.7.1(patch_hash=5fe1e907696b93b78856a93506d2e19fb5e991ef426c4b1554e4b755f5eb87e1)(react@19.2.1)
+        version: 3.7.1(react@19.2.1)
       zod:
         specifier: ^4.1.12
         version: 4.1.12
@@ -7927,7 +7922,7 @@ snapshots:
 
   word-wrap@1.2.5: {}
 
-  wouter@3.7.1(patch_hash=5fe1e907696b93b78856a93506d2e19fb5e991ef426c4b1554e4b755f5eb87e1)(react@19.2.1):
+  wouter@3.7.1(react@19.2.1):
     dependencies:
       mitt: 3.0.1
       react: 19.2.1

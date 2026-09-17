@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -18,6 +19,7 @@ import {
   findShipmentByTrackingNumber,
   getCustomerDashboard,
   getAdminOverview,
+  getPublishedPostBySlug,
   getPublishedContent,
   getShipmentCount,
   recordShipmentAuditLog,
@@ -26,6 +28,7 @@ import {
   updateQuoteStatus,
   updateShipment,
 } from "./db";
+import { notifyOwner } from "./_core/notification";
 
 const email = z.string().trim().email().max(320);
 const nonEmpty = (max: number) => z.string().trim().min(1).max(max);
@@ -85,10 +88,13 @@ export const appRouter = router({
     shipmentCount: publicProcedure.query(async () => ({
       count: await getShipmentCount(),
     })),
+    postBySlug: publicProcedure
+      .input(z.object({ slug: nonEmpty(180) }))
+      .query(async ({ input }) => getPublishedPostBySlug(input.slug)),
   }),
   customer: router({
     dashboard: protectedProcedure.query(async ({ ctx }) =>
-      getCustomerDashboard(ctx.user.email ?? "")
+      getCustomerDashboard((ctx.user.email ?? "").toLowerCase(), ctx.user.openId)
     ),
   }),
   quote: router({
@@ -109,10 +115,21 @@ export const appRouter = router({
           notes: z.string().trim().max(4000).optional(),
         })
       )
-      .mutation(async ({ input }) => ({
-        id: await createQuote(input),
-        success: true,
-      })),
+      .mutation(async ({ input, ctx }) => {
+        const id = await createQuote({
+          ...input,
+          email: input.email.toLowerCase(),
+          customerOpenId: ctx.user?.openId,
+        });
+        const notificationDelivered = await notifyOwner({
+          title: `New quote request from ${input.fullName}`,
+          content: `${input.origin} → ${input.destination} · ${input.shipmentType}\nContact: ${input.email}\nRequest ID: ${id}`,
+        }).catch(error => {
+          console.warn("[Quote] Owner notification failed:", error);
+          return false;
+        });
+        return { id, success: true, notificationDelivered };
+      }),
   }),
   contact: router({
     create: publicProcedure
@@ -125,10 +142,17 @@ export const appRouter = router({
           message: nonEmpty(4000),
         })
       )
-      .mutation(async ({ input }) => ({
-        id: await createContact(input),
-        success: true,
-      })),
+      .mutation(async ({ input }) => {
+        const id = await createContact({ ...input, email: input.email.toLowerCase() });
+        const notificationDelivered = await notifyOwner({
+          title: `New contact message from ${input.name}`,
+          content: `${input.subject ?? "General inquiry"}\nFrom: ${input.email}\nMessage ID: ${id}\n${input.message}`,
+        }).catch(error => {
+          console.warn("[Contact] Owner notification failed:", error);
+          return false;
+        });
+        return { id, success: true, notificationDelivered };
+      }),
   }),
   newsletter: router({
     subscribe: publicProcedure
@@ -148,7 +172,9 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        await updateQuoteStatus(input.id, input.status);
+        if (!(await updateQuoteStatus(input.id, input.status))) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Quote not found." });
+        }
         return { success: true };
       }),
     updateContactStatus: adminProcedure
@@ -159,7 +185,9 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        await updateContactStatus(input.id, input.status);
+        if (!(await updateContactStatus(input.id, input.status))) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found." });
+        }
         return { success: true };
       }),
     createShipment: adminProcedure
@@ -167,6 +195,7 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const id = await createShipment({
           ...input,
+          customerEmail: input.customerEmail?.toLowerCase(),
           status: input.status ?? "booked",
         });
         await recordShipmentAuditLog({
@@ -182,11 +211,15 @@ export const appRouter = router({
       .input(
         z.object({
           id: z.number().int().positive(),
-          data: shipmentInput.partial(),
+          data: shipmentInput.partial().refine(data => Object.keys(data).length > 0, {
+            message: "At least one shipment field is required.",
+          }),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        await updateShipment(input.id, input.data);
+        if (!(await updateShipment(input.id, input.data))) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Shipment not found." });
+        }
         await recordShipmentAuditLog({
           shipmentId: input.id,
           ...auditActor(ctx.user),
@@ -199,13 +232,15 @@ export const appRouter = router({
     deleteShipment: adminProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input, ctx }) => {
+        if (!(await deleteShipment(input.id))) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Shipment not found." });
+        }
         await recordShipmentAuditLog({
           shipmentId: input.id,
           ...auditActor(ctx.user),
           action: "deleted",
           summary: `Deleted shipment #${input.id}`,
         });
-        await deleteShipment(input.id);
         return { success: true };
       }),
     bulkCreateShipments: adminProcedure
@@ -243,6 +278,9 @@ export const appRouter = router({
       )
       .mutation(async ({ input, ctx }) => {
         const id = await addShipmentEvent(input);
+        if (!id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Shipment not found." });
+        }
         await recordShipmentAuditLog({
           shipmentId: input.shipmentId,
           ...auditActor(ctx.user),

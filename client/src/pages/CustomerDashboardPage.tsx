@@ -12,6 +12,7 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { usePageMetadata } from "@/components/SiteLayout";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 
@@ -41,6 +42,11 @@ function formatDate(value: Date | string | null | undefined) {
 }
 
 export default function CustomerDashboardPage() {
+  usePageMetadata("/dashboard", {
+    title: "Customer portal | Nexshipping",
+    description: "Private Nexshipping shipment and quote dashboard.",
+    noindex: true,
+  });
   const auth = useAuth();
   const dashboard = trpc.customer.dashboard.useQuery(undefined, {
     enabled: auth.isAuthenticated,
@@ -79,6 +85,19 @@ export default function CustomerDashboardPage() {
   const shipments = dashboard.data?.shipments ?? [];
   const quotes = dashboard.data?.quotes ?? [];
   const activeShipments = shipments.filter(item => item.status !== "delivered").length;
+
+  if (dashboard.isError) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f6f7f9] px-5 text-center text-[#122235]">
+        <div className="max-w-md">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f35b24]">Customer portal</p>
+          <h1 className="mt-4 font-display text-3xl font-semibold">We couldn’t load your dashboard.</h1>
+          <p className="mt-3 text-sm leading-7 text-[#617083]">Please try again. If the problem continues, contact Nexshipping support.</p>
+          <Button onClick={() => dashboard.refetch()} className="mt-7 rounded-full bg-[#071b2f] text-white">Try again <RefreshCw className="size-4" /></Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-[#122235]">

@@ -26,13 +26,21 @@ const statusLabels: Record<string, string> = {
 export default function TrackPage() {
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState("");
+  const [validationError, setValidationError] = useState("");
   const lookup = trpc.tracking.lookup.useQuery(
     { trackingNumber: submitted },
     { enabled: Boolean(submitted), retry: false }
   );
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    setSubmitted(input.trim().toUpperCase());
+    const normalized = input.trim().toUpperCase();
+    if (normalized.length < 4 || normalized.length > 32) {
+      setValidationError("Enter a tracking number between 4 and 32 characters.");
+      setSubmitted("");
+      return;
+    }
+    setValidationError("");
+    setSubmitted(normalized);
   };
   return (
     <main>
@@ -50,6 +58,11 @@ export default function TrackPage() {
             <Search className="size-5 text-[#8c9aa8]" />
             <input
               aria-label="Tracking number"
+              aria-invalid={Boolean(validationError)}
+              aria-describedby={validationError ? "tracking-error" : undefined}
+              required
+              minLength={4}
+              maxLength={32}
               value={input}
               onChange={event => setInput(event.target.value)}
               placeholder="Enter tracking number (e.g. NX-2048-AC)"
@@ -63,6 +76,11 @@ export default function TrackPage() {
             Track shipment <ArrowRight className="size-4" />
           </Button>
         </form>
+        {validationError && (
+          <p id="tracking-error" role="alert" className="mx-auto mt-3 max-w-3xl text-sm font-medium text-[#c94714]">
+            {validationError}
+          </p>
+        )}
         {lookup.isFetching && (
           <div className="mx-auto mt-12 max-w-3xl animate-pulse rounded-2xl bg-white p-8">
             <div className="h-5 w-40 rounded bg-[#eaf0f3]" />

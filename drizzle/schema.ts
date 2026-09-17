@@ -55,6 +55,7 @@ export const shipments = mysqlTable(
     serviceLevel: varchar("serviceLevel", { length: 80 }),
     weight: varchar("weight", { length: 80 }),
     customerEmail: varchar("customerEmail", { length: 320 }),
+    customerOpenId: varchar("customerOpenId", { length: 64 }),
     lastUpdate: timestamp("lastUpdate").defaultNow().notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -62,6 +63,9 @@ export const shipments = mysqlTable(
   table => ({
     trackingIdx: uniqueIndex("shipments_tracking_idx").on(table.trackingNumber),
     statusIdx: index("shipments_status_idx").on(table.status),
+    customerOpenIdIdx: index("shipments_customer_open_id_idx").on(
+      table.customerOpenId
+    ),
   })
 );
 
@@ -125,6 +129,7 @@ export const quotes = mysqlTable(
     dimensions: varchar("dimensions", { length: 120 }),
     shippingMethod: varchar("shippingMethod", { length: 100 }),
     notes: text("notes"),
+    customerOpenId: varchar("customerOpenId", { length: 64 }),
     status: mysqlEnum("status", ["new", "reviewing", "quoted", "closed"])
       .default("new")
       .notNull(),
@@ -134,6 +139,9 @@ export const quotes = mysqlTable(
   table => ({
     statusIdx: index("quotes_status_idx").on(table.status),
     emailIdx: index("quotes_email_idx").on(table.email),
+    customerOpenIdIdx: index("quotes_customer_open_id_idx").on(
+      table.customerOpenId
+    ),
   })
 );
 

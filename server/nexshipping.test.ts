@@ -104,6 +104,26 @@ describe("nexshipping public procedures", () => {
     });
   });
 
+  it("rejects empty shipment updates before database work", async () => {
+    const caller = appRouter.createCaller(createContext(adminUser));
+    await expect(caller.admin.updateShipment({ id: 1, data: {} })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  });
+
+  it("reports missing admin records instead of returning a false success", async () => {
+    const caller = appRouter.createCaller(createContext(adminUser));
+    await expect(
+      caller.admin.updateQuoteStatus({ id: 999999999, status: "closed" })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      caller.admin.updateContactStatus({ id: 999999999, status: "closed" })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(caller.admin.deleteShipment({ id: 999999999 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
   it("exposes shipment audit activity to authenticated admins", async () => {
     const caller = appRouter.createCaller(createContext(adminUser));
     const result = await caller.admin.overview();

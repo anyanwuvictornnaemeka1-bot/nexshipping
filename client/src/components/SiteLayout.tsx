@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { ArrowUpRight, Menu, PackageCheck, Phone, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,27 @@ const navItems = [
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  usePageMetadata(location);
+  useEffect(() => {
+    if (menuOpen) {
+      menuRef.current?.focus();
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menuOpen) setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
   return (
     <div className="min-h-screen bg-[#f6f7f9] text-[#122235]">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#071b2f]/95 text-white shadow-[0_8px_40px_rgba(7,27,47,0.16)] backdrop-blur-xl">
@@ -64,15 +85,26 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
           <button
+            ref={menuButtonRef}
+            type="button"
             className="grid size-10 place-items-center rounded-xl border border-white/15 lg:hidden"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
             onClick={() => setMenuOpen(!menuOpen)}
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
         {menuOpen && (
-          <div className="border-t border-white/10 bg-[#071b2f] px-5 py-5 lg:hidden">
+          <div
+            id="mobile-navigation"
+            ref={menuRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-label="Mobile navigation"
+            className="border-t border-white/10 bg-[#071b2f] px-5 py-5 lg:hidden"
+          >
             <nav
               className="container flex flex-col gap-5"
               aria-label="Mobile navigation"
@@ -229,4 +261,59 @@ export function PageIntro({
       </div>
     </section>
   );
+}
+
+const pageMetadata: Record<string, { title: string; description: string }> = {
+  "/": { title: "Global shipping, made clearer | Nexshipping", description: "Fast, reliable, and secure global freight forwarding with shipment visibility from port to doorstep." },
+  "/about": { title: "About Nexshipping | Global logistics partner", description: "Meet the people and network behind Nexshipping Global Logistics." },
+  "/services": { title: "Freight services | Nexshipping", description: "Ocean, air, ground, rail, and multimodal freight services for ambitious supply chains." },
+  "/tracking": { title: "Track a shipment | Nexshipping", description: "Check the latest verified milestone, current location, and estimated delivery for your Nexshipping shipment." },
+  "/quote": { title: "Request a freight quote | Nexshipping", description: "Share your shipment details and get a tailored logistics quote from Nexshipping." },
+  "/contact": { title: "Contact Nexshipping | Global logistics support", description: "Talk with a Nexshipping specialist about a route, quote, shipment, or next step." },
+  "/faq": { title: "Frequently asked questions | Nexshipping", description: "Clear answers about tracking, freight services, quotes, special cargo, and delays." },
+  "/news": { title: "Insights | Nexshipping", description: "Practical perspectives on freight, resilience, visibility, and supply chains." },
+  "/privacy": { title: "Privacy policy | Nexshipping", description: "How Nexshipping collects, uses, and protects personal information." },
+  "/terms": { title: "Terms and conditions | Nexshipping", description: "Terms governing use of the Nexshipping website and services." },
+};
+
+export function usePageMetadata(
+  location: string,
+  override?: { title: string; description: string; noindex?: boolean }
+) {
+  useEffect(() => {
+    const metadata: { title: string; description: string; noindex?: boolean } = override ?? pageMetadata[location] ?? (location.startsWith("/news/")
+      ? { title: "Insight | Nexshipping", description: "Logistics insight from the Nexshipping network." }
+      : { title: "Nexshipping Global Logistics", description: "A connected logistics partner for global supply chains." });
+    document.title = metadata.title;
+    const setMeta = (name: string, content: string) => {
+      let element = document.querySelector(`meta[name="${name}"]`);
+      if (!element) {
+        element = document.createElement("meta");
+        element.setAttribute("name", name);
+        document.head.appendChild(element);
+      }
+      element.setAttribute("content", content);
+    };
+    setMeta("description", metadata.description);
+    setMeta("robots", metadata.noindex ? "noindex,nofollow" : "index,follow");
+    const setProperty = (property: string, content: string) => {
+      let element = document.querySelector(`meta[property="${property}"]`);
+      if (!element) {
+        element = document.createElement("meta");
+        element.setAttribute("property", property);
+        document.head.appendChild(element);
+      }
+      element.setAttribute("content", content);
+    };
+    setProperty("og:title", metadata.title);
+    setProperty("og:description", metadata.description);
+    setProperty("og:url", `https://nexshipping.com${location === "/" ? "/" : location}`);
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = `https://nexshipping.com${location === "/" ? "/" : location}`;
+  }, [location, override?.title, override?.description, override?.noindex]);
 }

@@ -17,6 +17,7 @@ const AboutPage = lazy(async () => ({ default: (await import("./pages/ContentPag
 const ContactPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).ContactPage }));
 const FAQPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).FAQPage }));
 const NewsPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).NewsPage }));
+const NewsDetailPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).NewsDetailPage }));
 const ServicesPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).ServicesPage }));
 const LegalPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).LegalPage }));
 
@@ -31,6 +32,7 @@ function PublicRouter() {
         <Route path="/quote" component={QuotePage} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/faq" component={FAQPage} />
+        <Route path="/news/:slug" component={NewsDetailPage} />
         <Route path="/news" component={NewsPage} />
         <Route path="/privacy">
           <LegalPage kind="privacy" />

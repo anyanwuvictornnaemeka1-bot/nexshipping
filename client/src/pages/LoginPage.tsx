@@ -3,8 +3,14 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePageMetadata } from "@/components/SiteLayout";
 
 export default function LoginPage() {
+  usePageMetadata("/login", {
+    title: "Sign in | Nexshipping customer portal",
+    description: "Securely sign in to the Nexshipping customer portal.",
+    noindex: true,
+  });
   const { user, loading } = useAuth();
 
   if (loading) {

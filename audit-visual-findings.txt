@@ -1,0 +1,10 @@
+Final responsive screenshot pass (375x812) completed for /, /tracking, /news, /news/example, /login, /dashboard, and /admin.
+
+Findings:
+- Public homepage remains legible on mobile; hero image, CTA buttons, and navigation trigger render without horizontal overflow.
+- Tracking form stacks correctly and uses a visible, full-width CTA.
+- News index displays an explicit empty state when the database has no published posts.
+- News detail route resolves safely to a not-found state with a back-to-insights CTA for an unknown slug.
+- Login and customer dashboard screens render as private portal experiences; preview auto-login was active during the capture.
+- Admin portal exposes a compact mobile section select instead of relying on the desktop sidebar.
+- No visual blocker observed in the captured viewport; long-form content was intentionally not judged from a top-viewport-only capture.

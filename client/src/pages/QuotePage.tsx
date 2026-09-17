@@ -76,50 +76,55 @@ export default function QuotePage() {
         >
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Full name *</label>
-              <input required name="fullName" className={inputClass} />
+              <label htmlFor="quote-full-name" className={labelClass}>Full name *</label>
+              <input required id="quote-full-name" name="fullName" autoComplete="name" className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Work email *</label>
+              <label htmlFor="quote-email" className={labelClass}>Work email *</label>
               <input
                 required
                 type="email"
+                id="quote-email"
                 name="email"
+                autoComplete="email"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Phone</label>
-              <input name="phone" className={inputClass} />
+              <label htmlFor="quote-phone" className={labelClass}>Phone</label>
+              <input id="quote-phone" name="phone" autoComplete="tel" className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Company</label>
-              <input name="company" className={inputClass} />
+              <label htmlFor="quote-company" className={labelClass}>Company</label>
+              <input id="quote-company" name="company" autoComplete="organization" className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Origin *</label>
+              <label htmlFor="quote-origin" className={labelClass}>Origin *</label>
               <input
                 required
                 name="origin"
+                id="quote-origin"
                 placeholder="City, country"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Destination *</label>
+              <label htmlFor="quote-destination" className={labelClass}>Destination *</label>
               <input
                 required
                 name="destination"
+                id="quote-destination"
                 placeholder="City, country"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Shipment type *</label>
+              <label htmlFor="quote-shipment-type" className={labelClass}>Shipment type *</label>
               <div className="relative">
                 <select
                   required
                   name="shipmentType"
+                  id="quote-shipment-type"
                   className={inputClass + " appearance-none pr-10"}
                   defaultValue=""
                 >
@@ -135,44 +140,49 @@ export default function QuotePage() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Preferred shipping method</label>
+              <label htmlFor="quote-shipping-method" className={labelClass}>Preferred shipping method</label>
               <input
                 name="shippingMethod"
+                id="quote-shipping-method"
                 placeholder="Express, standard, etc."
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Weight</label>
+              <label htmlFor="quote-weight" className={labelClass}>Weight</label>
               <input
                 name="weight"
+                id="quote-weight"
                 placeholder="e.g. 1,200 kg"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Dimensions</label>
+              <label htmlFor="quote-dimensions" className={labelClass}>Dimensions</label>
               <input
                 name="dimensions"
+                id="quote-dimensions"
                 placeholder="L × W × H"
                 className={inputClass}
               />
             </div>
           </div>
           <div className="mt-6">
-            <label className={labelClass}>Cargo description *</label>
+            <label htmlFor="quote-cargo-description" className={labelClass}>Cargo description *</label>
             <textarea
               required
               name="cargoDescription"
+              id="quote-cargo-description"
               rows={4}
               placeholder="What are you shipping? Include any special handling requirements."
               className="mt-2 w-full rounded-xl border border-[#dfe5eb] bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[#f35b24] focus:ring-4 focus:ring-[#f35b24]/10"
             />
           </div>
           <div className="mt-6">
-            <label className={labelClass}>Additional notes</label>
+            <label htmlFor="quote-notes" className={labelClass}>Additional notes</label>
             <textarea
               name="notes"
+              id="quote-notes"
               rows={3}
               placeholder="Anything else we should know?"
               className="mt-2 w-full rounded-xl border border-[#dfe5eb] bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[#f35b24] focus:ring-4 focus:ring-[#f35b24]/10"
@@ -186,6 +196,7 @@ export default function QuotePage() {
             {quote.isPending ? "Sending request…" : "Request my quote"}{" "}
             <ArrowRight className="size-4" />
           </Button>
+          {quote.isError && <p role="alert" className="mt-4 text-sm font-medium text-[#c94714]">We couldn’t submit your quote request. Please try again or contact our team.</p>}
         </form>
         <aside className="lg:pl-6">
           <div className="rounded-3xl bg-[#071b2f] p-8 text-white sm:p-10">

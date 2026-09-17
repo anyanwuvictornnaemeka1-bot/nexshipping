@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { loadGoogleMaps } from "@/components/Map";
+import { usePageMetadata } from "@/components/SiteLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -34,6 +35,11 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function AdminPage() {
+  usePageMetadata("/admin", {
+    title: "Operations portal | Nexshipping",
+    description: "Private Nexshipping shipment and customer operations portal.",
+    noindex: true,
+  });
   const auth = useAuth();
   const [tab, setTab] = useState<
     "overview" | "shipments" | "quotes" | "contacts"
@@ -201,6 +207,15 @@ export default function AdminPage() {
             <h1 className="mt-1 font-display text-2xl font-semibold tracking-[-0.04em]">
               {nav.find(([id]) => id === tab)?.[1]}
             </h1>
+            <label className="sr-only" htmlFor="admin-section">Admin section</label>
+            <select
+              id="admin-section"
+              value={tab}
+              onChange={event => setTab(event.target.value as typeof tab)}
+              className="mt-3 h-9 rounded-lg border border-[#dfe5eb] bg-white px-3 text-xs font-semibold lg:hidden"
+            >
+              {nav.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-right sm:block">
@@ -213,6 +228,12 @@ export default function AdminPage() {
           </div>
         </header>
         <div className="p-5 sm:p-8">
+          {overview.isError && (
+            <div role="alert" className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#f2c9bd] bg-[#fff7f4] p-4 text-sm text-[#8a3218] sm:flex-row sm:items-center sm:justify-between">
+              <span>We couldn’t load the operations data. Try again before making changes.</span>
+              <Button variant="outline" onClick={() => overview.refetch()} className="w-fit rounded-full border-[#f2c9bd] bg-transparent text-[#8a3218]">Retry</Button>
+            </div>
+          )}
           {tab === "overview" && (
             <>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -1,7 +1,7 @@
 import {
   AXIOS_TIMEOUT_MS,
   COOKIE_NAME,
-  ONE_YEAR_MS,
+  SESSION_LIFETIME_MS,
   decodeOAuthState,
 } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
@@ -190,7 +190,7 @@ class SDKServer {
     options: { expiresInMs?: number } = {}
   ): Promise<string> {
     const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
+    const expiresInMs = options.expiresInMs ?? SESSION_LIFETIME_MS;
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 

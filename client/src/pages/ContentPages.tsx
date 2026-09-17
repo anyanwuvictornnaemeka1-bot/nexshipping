@@ -13,7 +13,7 @@ import {
 import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { PageIntro, SectionEyebrow } from "@/components/SiteLayout";
+import { PageIntro, SectionEyebrow, usePageMetadata } from "@/components/SiteLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -260,13 +260,15 @@ export function NewsPage() {
                 {post.coverImage ? (
                   <img
                     src={post.coverImage}
-                    alt=""
+                    alt={post.title}
+                    loading="lazy"
                     className="size-full object-cover"
                   />
                 ) : (
                   <img
                     src={[WAREHOUSE_IMAGE, AIR_IMAGE, PORT_IMAGE][index % 3]}
-                    alt=""
+                    alt={post.title}
+                    loading="lazy"
                     className="size-full object-cover"
                   />
                 )}
@@ -300,8 +302,34 @@ export function NewsPage() {
               </p>
             </div>
           )}
+          {content.isError && (
+            <div role="alert" className="col-span-full rounded-2xl border border-[#f2c9bd] bg-[#fff7f4] p-8 text-center">
+              <p className="font-display text-2xl font-semibold">Insights are temporarily unavailable.</p>
+              <p className="mt-2 text-sm text-[#617083]">Please try again shortly or contact our team directly.</p>
+            </div>
+          )}
         </div>
       </section>
+    </main>
+  );
+}
+
+export function NewsDetailPage({ params }: { params: { slug: string } }) {
+  const post = trpc.publicContent.postBySlug.useQuery({ slug: params.slug });
+  usePageMetadata(`/news/${params.slug}`, post.data ? { title: `${post.data.title} | Nexshipping`, description: post.data.excerpt } : undefined);
+  if (post.isLoading) {
+    return <main className="min-h-[60vh] bg-[#f6f7f9] p-10"><div className="container animate-pulse"><div className="h-10 max-w-2xl rounded bg-[#dfe5eb]" /><div className="mt-6 h-5 max-w-xl rounded bg-[#dfe5eb]" /></div></main>;
+  }
+  if (post.isError || !post.data) {
+    return <main><PageIntro eyebrow="Insights" title="That story is not available." description="The article may have moved or is no longer published." /><div className="container py-20"><Button asChild className="rounded-full bg-[#071b2f] text-white"><Link href="/news">Back to insights <ArrowRight className="size-4" /></Link></Button></div></main>;
+  }
+  return (
+    <main>
+      <PageIntro eyebrow={post.data.category} title={post.data.title} description={post.data.excerpt} />
+      <article className="container max-w-3xl py-20 lg:py-28">
+        {post.data.coverImage && <img src={post.data.coverImage} alt={post.data.title} className="mb-10 aspect-[16/8] w-full rounded-3xl object-cover" />}
+        <div className="prose max-w-none whitespace-pre-line text-base leading-8">{post.data.content}</div>
+      </article>
     </main>
   );
 }
@@ -363,6 +391,9 @@ export function FAQPage() {
               className="rounded-2xl border border-[#e1e7ed] bg-white"
             >
               <button
+                type="button"
+                aria-expanded={open === index}
+                aria-controls={`faq-answer-${index}`}
                 className="flex w-full items-center justify-between gap-4 p-5 text-left font-semibold"
                 onClick={() => setOpen(open === index ? -1 : index)}
               >
@@ -372,7 +403,7 @@ export function FAQPage() {
                 />
               </button>
               {open === index && (
-                <p className="px-5 pb-5 text-sm leading-7 text-[#617083]">
+                <p id={`faq-answer-${index}`} className="px-5 pb-5 text-sm leading-7 text-[#617083]">
                   {answer}
                 </p>
               )}
@@ -466,41 +497,49 @@ export function ContactPage() {
         >
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <label className="text-sm font-semibold">Name *</label>
+              <label htmlFor="contact-name" className="text-sm font-semibold">Name *</label>
               <input
                 required
+                id="contact-name"
                 name="name"
+                autoComplete="name"
                 className="mt-2 h-12 w-full rounded-xl border border-[#dfe5eb] px-4 text-sm outline-none focus:border-[#f35b24]"
               />
             </div>
             <div>
-              <label className="text-sm font-semibold">Email *</label>
+              <label htmlFor="contact-email" className="text-sm font-semibold">Email *</label>
               <input
                 required
                 type="email"
+                id="contact-email"
                 name="email"
+                autoComplete="email"
                 className="mt-2 h-12 w-full rounded-xl border border-[#dfe5eb] px-4 text-sm outline-none focus:border-[#f35b24]"
               />
             </div>
             <div>
-              <label className="text-sm font-semibold">Phone</label>
+              <label htmlFor="contact-phone" className="text-sm font-semibold">Phone</label>
               <input
+                id="contact-phone"
                 name="phone"
+                autoComplete="tel"
                 className="mt-2 h-12 w-full rounded-xl border border-[#dfe5eb] px-4 text-sm outline-none focus:border-[#f35b24]"
               />
             </div>
             <div>
-              <label className="text-sm font-semibold">Subject</label>
+              <label htmlFor="contact-subject" className="text-sm font-semibold">Subject</label>
               <input
+                id="contact-subject"
                 name="subject"
                 className="mt-2 h-12 w-full rounded-xl border border-[#dfe5eb] px-4 text-sm outline-none focus:border-[#f35b24]"
               />
             </div>
           </div>
           <div className="mt-6">
-            <label className="text-sm font-semibold">How can we help? *</label>
+            <label htmlFor="contact-message" className="text-sm font-semibold">How can we help? *</label>
             <textarea
               required
+              id="contact-message"
               name="message"
               rows={7}
               className="mt-2 w-full rounded-xl border border-[#dfe5eb] px-4 py-3 text-sm outline-none focus:border-[#f35b24]"
@@ -514,6 +553,7 @@ export function ContactPage() {
             {contact.isPending ? "Sending…" : "Send message"}{" "}
             <ArrowRight className="size-4" />
           </Button>
+          {contact.isError && <p role="alert" className="mt-4 text-sm font-medium text-[#c94714]">We couldn’t send your message. Please try again or call our support team.</p>}
         </form>
       </section>
     </main>

@@ -87,6 +87,7 @@ export async function notifyOwner(
   try {
     const response = await fetch(endpoint, {
       method: "POST",
+      signal: AbortSignal.timeout(5000),
       headers: {
         accept: "application/json",
         authorization: `Bearer ${ENV.forgeApiKey}`,
