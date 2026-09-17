@@ -10,6 +10,18 @@ function createContext(user?: TrpcContext["user"]): TrpcContext {
   };
 }
 
+const adminUser: NonNullable<TrpcContext["user"]> = {
+  id: 1,
+  openId: "admin-user",
+  name: "Operations Admin",
+  email: "ops@nexshipping.com",
+  loginMethod: "manus",
+  role: "admin",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  lastSignedIn: new Date(),
+};
+
 describe("nexshipping public procedures", () => {
   it("returns an empty result for an unknown tracking number instead of fabricating data", async () => {
     const caller = appRouter.createCaller(createContext());
@@ -38,5 +50,29 @@ describe("nexshipping public procedures", () => {
     await expect(caller.admin.overview()).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
+  });
+
+  it("protects shipment creation from unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(createContext());
+    await expect(
+      caller.admin.createShipment({
+        trackingNumber: "NX-2048-AC",
+        origin: "Chicago",
+        destination: "Rotterdam",
+        shipmentType: "ocean",
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("validates shipment events before attempting persistence", async () => {
+    const caller = appRouter.createCaller(createContext(adminUser));
+    await expect(
+      caller.admin.addShipmentEvent({
+        shipmentId: 1,
+        status: "in_transit",
+        title: "",
+        eventTime: new Date(),
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

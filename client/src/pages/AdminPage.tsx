@@ -4,11 +4,13 @@ import {
   ArrowRight,
   Box,
   CheckCircle2,
+  ChevronDown,
   Inbox,
   LogOut,
   MessageSquare,
   Package,
   RefreshCw,
+  Send,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -41,6 +43,20 @@ export default function AdminPage() {
   });
   const contactStatus = trpc.admin.updateContactStatus.useMutation({
     onSuccess: () => overview.refetch(),
+    onError: error => toast.error(error.message),
+  });
+  const createShipment = trpc.admin.createShipment.useMutation({
+    onSuccess: () => {
+      toast.success("Shipment created.");
+      overview.refetch();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const addShipmentEvent = trpc.admin.addShipmentEvent.useMutation({
+    onSuccess: () => {
+      toast.success("Shipment event added and status updated.");
+      overview.refetch();
+    },
     onError: error => toast.error(error.message),
   });
 
@@ -253,50 +269,50 @@ export default function AdminPage() {
             </>
           )}
           {tab === "shipments" && (
-            <Panel
-              title="Shipment management"
-              action={() => overview.refetch()}
-              actionLabel="Refresh"
-            >
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[#e1e7ed] text-xs uppercase tracking-[0.12em] text-[#8c9aa8]">
-                      <th className="pb-3 font-semibold">Tracking</th>
-                      <th className="pb-3 font-semibold">Route</th>
-                      <th className="pb-3 font-semibold">Status</th>
-                      <th className="pb-3 font-semibold">Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data?.shipments ?? []).map(shipment => (
-                      <tr
-                        key={shipment.id}
-                        className="border-b border-[#e1e7ed] last:border-0"
-                      >
-                        <td className="py-4 font-semibold">
-                          {shipment.trackingNumber}
-                        </td>
-                        <td className="py-4 text-[#617083]">
-                          {shipment.origin} → {shipment.destination}
-                        </td>
-                        <td className="py-4">
-                          <span className="rounded-full bg-[#d7eee8] px-2.5 py-1 text-xs font-bold text-[#13715a]">
-                            {shipment.status.replaceAll("_", " ")}
-                          </span>
-                        </td>
-                        <td className="py-4 text-[#8c9aa8]">
-                          {new Date(shipment.lastUpdate).toLocaleDateString()}
-                        </td>
+            <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+              <Panel
+                title="Create shipment"
+                action={() => undefined}
+                actionLabel="Admin only"
+              >
+                <ShipmentForm
+                  pending={createShipment.isPending}
+                  onSubmit={values => createShipment.mutate(values)}
+                />
+              </Panel>
+              <Panel
+                title="Shipment management"
+                action={() => overview.refetch()}
+                actionLabel="Refresh"
+              >
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[780px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[#e1e7ed] text-xs uppercase tracking-[0.12em] text-[#8c9aa8]">
+                        <th className="pb-3 font-semibold">Tracking</th>
+                        <th className="pb-3 font-semibold">Route</th>
+                        <th className="pb-3 font-semibold">Status</th>
+                        <th className="pb-3 font-semibold">Updated</th>
+                        <th className="pb-3 font-semibold">Add event</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!data?.shipments.length && (
-                  <EmptyState label="No shipments have been added" />
-                )}
-              </div>
-            </Panel>
+                    </thead>
+                    <tbody>
+                      {(data?.shipments ?? []).map(shipment => (
+                        <ShipmentRow
+                          key={shipment.id}
+                          shipment={shipment}
+                          pending={addShipmentEvent.isPending}
+                          onSubmit={values => addShipmentEvent.mutate(values)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                  {!data?.shipments.length && (
+                    <EmptyState label="No shipments have been added" />
+                  )}
+                </div>
+              </Panel>
+            </div>
           )}
           {tab === "quotes" && (
             <Panel
@@ -491,6 +507,344 @@ function EmptyState({ label }: { label: string }) {
     <div className="py-8 text-center text-sm text-[#8c9aa8]">
       <CheckCircle2 className="mx-auto mb-3 size-6 text-[#cbd5dd]" />
       {label}
+    </div>
+  );
+}
+
+type ShipmentFormValues = {
+  trackingNumber: string;
+  origin: string;
+  destination: string;
+  currentLocation?: string;
+  estimatedDelivery?: Date;
+  shipmentType: "air" | "ocean" | "road" | "rail" | "multimodal";
+  serviceLevel?: string;
+  weight?: string;
+  customerEmail?: string;
+};
+
+function ShipmentForm({
+  pending,
+  onSubmit,
+}: {
+  pending: boolean;
+  onSubmit: (values: ShipmentFormValues) => void;
+}) {
+  return (
+    <form
+      className="grid gap-4"
+      onSubmit={event => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        const estimated = String(form.get("estimatedDelivery") ?? "");
+        onSubmit({
+          trackingNumber: String(form.get("trackingNumber") ?? "")
+            .trim()
+            .toUpperCase(),
+          origin: String(form.get("origin") ?? "").trim(),
+          destination: String(form.get("destination") ?? "").trim(),
+          currentLocation:
+            String(form.get("currentLocation") ?? "").trim() || undefined,
+          estimatedDelivery: estimated
+            ? new Date(`${estimated}T12:00:00`)
+            : undefined,
+          shipmentType: String(
+            form.get("shipmentType") ?? "ocean"
+          ) as ShipmentFormValues["shipmentType"],
+          serviceLevel:
+            String(form.get("serviceLevel") ?? "").trim() || undefined,
+          weight: String(form.get("weight") ?? "").trim() || undefined,
+          customerEmail:
+            String(form.get("customerEmail") ?? "").trim() || undefined,
+        });
+        event.currentTarget.reset();
+      }}
+    >
+      <Field label="Tracking number *">
+        <input
+          required
+          name="trackingNumber"
+          placeholder="NX-2048-AC"
+          className="admin-input"
+        />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Origin *">
+          <input
+            required
+            name="origin"
+            placeholder="Chicago, IL"
+            className="admin-input"
+          />
+        </Field>
+        <Field label="Destination *">
+          <input
+            required
+            name="destination"
+            placeholder="Rotterdam, NL"
+            className="admin-input"
+          />
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Mode">
+          <Select
+            name="shipmentType"
+            options={[
+              ["ocean", "Ocean"],
+              ["air", "Air"],
+              ["road", "Road"],
+              ["rail", "Rail"],
+              ["multimodal", "Multimodal"],
+            ]}
+          />
+        </Field>
+        <Field label="Estimated delivery">
+          <input type="date" name="estimatedDelivery" className="admin-input" />
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Current location">
+          <input
+            name="currentLocation"
+            placeholder="In transit"
+            className="admin-input"
+          />
+        </Field>
+        <Field label="Service level">
+          <input
+            name="serviceLevel"
+            placeholder="Priority"
+            className="admin-input"
+          />
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Weight">
+          <input name="weight" placeholder="240 kg" className="admin-input" />
+        </Field>
+        <Field label="Customer email">
+          <input
+            type="email"
+            name="customerEmail"
+            placeholder="ops@customer.com"
+            className="admin-input"
+          />
+        </Field>
+      </div>
+      <Button
+        type="submit"
+        disabled={pending}
+        className="mt-2 h-11 rounded-xl bg-[#f35b24] text-white hover:bg-[#df4d1a]"
+      >
+        <Package className="size-4" />
+        {pending ? "Creating…" : "Create shipment"}
+      </Button>
+    </form>
+  );
+}
+
+type ShipmentStatus =
+  | "booked"
+  | "in_transit"
+  | "customs"
+  | "out_for_delivery"
+  | "delivered"
+  | "exception";
+
+type ShipmentEventValues = {
+  shipmentId: number;
+  status: ShipmentStatus;
+  title: string;
+  description?: string;
+  location?: string;
+  eventTime: Date;
+};
+
+function ShipmentRow({
+  shipment,
+  pending,
+  onSubmit,
+}: {
+  shipment: {
+    id: number;
+    trackingNumber: string;
+    origin: string;
+    destination: string;
+    status: string;
+    lastUpdate: Date;
+  };
+  pending: boolean;
+  onSubmit: (values: ShipmentEventValues) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <tr className="border-b border-[#e1e7ed] last:border-0">
+        <td className="py-4 font-semibold">{shipment.trackingNumber}</td>
+        <td className="py-4 text-[#617083]">
+          {shipment.origin} → {shipment.destination}
+        </td>
+        <td className="py-4">
+          <span className="rounded-full bg-[#d7eee8] px-2.5 py-1 text-xs font-bold capitalize text-[#13715a]">
+            {shipment.status.replaceAll("_", " ")}
+          </span>
+        </td>
+        <td className="py-4 text-[#8c9aa8]">
+          {new Date(shipment.lastUpdate).toLocaleDateString()}
+        </td>
+        <td className="py-4">
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-bold text-[#c94714]"
+          >
+            Update{" "}
+            <ChevronDown
+              className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-b border-[#e1e7ed]">
+          <td colSpan={5} className="bg-[#f6f7f9] p-4">
+            <EventForm
+              shipmentId={shipment.id}
+              pending={pending}
+              onSubmit={onSubmit}
+            />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function EventForm({
+  shipmentId,
+  pending,
+  onSubmit,
+}: {
+  shipmentId: number;
+  pending: boolean;
+  onSubmit: (values: ShipmentEventValues) => void;
+}) {
+  return (
+    <form
+      className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end"
+      onSubmit={event => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        onSubmit({
+          shipmentId,
+          status: String(form.get("status")) as ShipmentStatus,
+          title: String(form.get("title")).trim(),
+          description:
+            String(form.get("description") ?? "").trim() || undefined,
+          location: String(form.get("location") ?? "").trim() || undefined,
+          eventTime: new Date(String(form.get("eventTime"))),
+        });
+        event.currentTarget.reset();
+      }}
+    >
+      <Field label="Status">
+        <Select
+          name="status"
+          options={[
+            ["booked", "Booked"],
+            ["in_transit", "In transit"],
+            ["customs", "Customs"],
+            ["out_for_delivery", "Out for delivery"],
+            ["delivered", "Delivered"],
+            ["exception", "Exception"],
+          ]}
+        />
+      </Field>
+      <Field label="Milestone title">
+        <input
+          required
+          name="title"
+          placeholder="Departed origin facility"
+          className="admin-input"
+        />
+      </Field>
+      <Field label="Location">
+        <input
+          name="location"
+          placeholder="Chicago, IL"
+          className="admin-input"
+        />
+      </Field>
+      <Field label="Event time">
+        <input
+          required
+          type="datetime-local"
+          name="eventTime"
+          defaultValue={new Date(
+            Date.now() - new Date().getTimezoneOffset() * 60000
+          )
+            .toISOString()
+            .slice(0, 16)}
+          className="admin-input"
+        />
+      </Field>
+      <Button
+        type="submit"
+        disabled={pending}
+        className="h-10 rounded-xl bg-[#071b2f] text-white hover:bg-[#16344f]"
+      >
+        <Send className="size-4" />
+        {pending ? "Saving" : "Add event"}
+      </Button>
+      <div className="lg:col-span-full">
+        <Field label="Description">
+          <input
+            name="description"
+            placeholder="Cargo handed to linehaul partner"
+            className="admin-input"
+          />
+        </Field>
+      </div>
+    </form>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block text-xs font-bold uppercase tracking-[0.1em] text-[#8c9aa8]">
+      <span>{label}</span>
+      <div className="mt-2 normal-case tracking-normal">{children}</div>
+    </label>
+  );
+}
+function Select({
+  name,
+  options,
+}: {
+  name: string;
+  options: Array<[string, string]>;
+}) {
+  return (
+    <div className="relative">
+      <select
+        name={name}
+        defaultValue={options[0][0]}
+        className="admin-input appearance-none pr-9"
+      >
+        {options.map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-3 size-4 text-[#8c9aa8]" />
     </div>
   );
 }

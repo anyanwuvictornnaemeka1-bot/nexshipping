@@ -10,6 +10,7 @@ Nexshipping is a production-oriented global shipping and logistics website built
 - Newsletter subscription flow with duplicate-safe persistence.
 - Protected admin operations portal at `/admin`, gated by the authenticated user's `admin` role.
 - Admin overview for shipment records, quote request status management, contact message status management, and subscriber count.
+- Admin shipment workspace with a protected create-shipment form and inline event form for status, milestone title, location, event time, and description. Adding an event also updates the shipment’s current status, location, and last-update timestamp used by public tracking.
 - SEO metadata, Open Graph tags, `robots.txt`, and sitemap configuration.
 
 ## Local setup
@@ -43,6 +44,8 @@ pnpm drizzle-kit migrate
 The main tables are `users`, `shipments`, `shipment_events`, `quotes`, `contacts`, `newsletter_subscribers`, `blog_posts`, `testimonials`, and `partners`.
 
 For a real production rollout, operations should add shipment and shipment-event records through the protected admin workflow or an authenticated internal integration. The public tracking page intentionally returns an empty state when a number does not exist; it does not fabricate tracking data.
+
+From `/admin`, choose **Shipments** to create a shipment. After it is listed, choose **Update** beside a shipment to add a milestone. The event form supports the full shipment status lifecycle: booked, in transit, customs clearance, out for delivery, delivered, and exception. The server enforces admin authorization and validates all fields before persistence.
 
 ## Admin setup
 

@@ -139,7 +139,14 @@ export const appRouter = router({
       .input(
         z.object({
           shipmentId: z.number().int().positive(),
-          status: nonEmpty(80),
+          status: z.enum([
+            "booked",
+            "in_transit",
+            "customs",
+            "out_for_delivery",
+            "delivered",
+            "exception",
+          ]),
           title: nonEmpty(160),
           description: z.string().trim().max(2000).optional(),
           location: z.string().trim().max(160).optional(),

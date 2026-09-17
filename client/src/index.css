@@ -168,6 +168,24 @@
 .prose a {
   color: #f35b24;
 }
+.admin-input {
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #dfe5eb;
+  background: #ffffff;
+  padding: 0 0.85rem;
+  color: #122235;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.admin-input:focus {
+  border-color: #f35b24;
+  box-shadow: 0 0 0 3px rgba(243, 91, 36, 0.12);
+}
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
