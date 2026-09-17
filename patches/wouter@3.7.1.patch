@@ -1,28 +1,27 @@
-diff --git a/esm/index.js b/esm/index.js
-index c83bc63a2c10431fb62e25b7d490656a3796f301..bcae513cc20a4be6c38dc116e0b8d9bacda62b5b 100644
---- a/esm/index.js
-+++ b/esm/index.js
-@@ -338,6 +338,23 @@ const Switch = ({ children, location }) => {
-   const router = useRouter();
-   const [originalLocation] = useLocationFromRouter(router);
- 
-+  // Collect all route paths to window object
-+  if (typeof window !== 'undefined') {
-+    if (!window.__WOUTER_ROUTES__) {
-+      window.__WOUTER_ROUTES__ = [];
-+    }
-+
-+    const allChildren = flattenChildren(children);
-+    allChildren.forEach((element) => {
-+      if (isValidElement(element) && element.props.path) {
-+        const path = element.props.path;
-+        if (!window.__WOUTER_ROUTES__.includes(path)) {
-+          window.__WOUTER_ROUTES__.push(path);
-+        }
-+      }
-+    });
-+  }
-+
-   for (const element of flattenChildren(children)) {
-     let match = 0;
- 
+[1mdiff --git a/esm/index.js b/esm/index.js[m
+[1mindex c83bc63a2c10431fb62e25b7d490656a3796f301..d749ba27f20bb7746231bfbf30b51293471d04d9 100644[m
+[1m--- a/esm/index.js[m
+[1m+++ b/esm/index.js[m
+[36m@@ -337,6 +337,22 @@[m [mconst flattenChildren = (children) =>[m
+ const Switch = ({ children, location }) => {[m
+   const router = useRouter();[m
+   const [originalLocation] = useLocationFromRouter(router);[m
+[32m+[m[32m  // Collect all route paths to window object[m
+[32m+[m[32m  if (typeof window !== 'undefined') {[m
+[32m+[m[32m    if (!window.__WOUTER_ROUTES__) {[m
+[32m+[m[32m      window.__WOUTER_ROUTES__ = [];[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    const allChildren = flattenChildren(children);[m
+[32m+[m[32m    allChildren.forEach((element) => {[m
+[32m+[m[32m      if (isValidElement(element) && element.props.path) {[m
+[32m+[m[32m        const path = element.props.path;[m
+[32m+[m[32m        if (!window.__WOUTER_ROUTES__.includes(path)) {[m
+[32m+[m[32m          window.__WOUTER_ROUTES__.push(path);[m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+[32m+[m[32m    });[m
+[32m+[m[32m  }[m
+ [m
+   for (const element of flattenChildren(children)) {[m
+     let match = 0;[m

@@ -11,7 +11,6 @@ import {
   Ship,
   Sparkles,
   Truck,
-  Warehouse,
   Zap,
 } from "lucide-react";
 import { useState } from "react";

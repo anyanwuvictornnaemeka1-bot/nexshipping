@@ -8,7 +8,6 @@ import {
   Mail,
   MapPin,
   Phone,
-  ShieldCheck,
   Warehouse,
 } from "lucide-react";
 import { useState } from "react";

@@ -45,6 +45,24 @@ describe("nexshipping public procedures", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
+  it("rejects malformed contact requests before database work", async () => {
+    const caller = appRouter.createCaller(createContext());
+    await expect(
+      caller.contact.create({
+        name: "Test User",
+        email: "not-an-email",
+        message: "Please contact me",
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("rejects malformed newsletter subscriptions before database work", async () => {
+    const caller = appRouter.createCaller(createContext());
+    await expect(
+      caller.newsletter.subscribe({ email: "not-an-email" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
   it("protects admin overview from unauthenticated callers", async () => {
     const caller = appRouter.createCaller(createContext());
     await expect(caller.admin.overview()).rejects.toMatchObject({
