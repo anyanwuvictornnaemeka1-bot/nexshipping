@@ -83,6 +83,32 @@ export const shipmentEvents = mysqlTable(
   })
 );
 
+export const shipmentAuditLogs = mysqlTable(
+  "shipment_audit_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    shipmentId: int("shipmentId").notNull(),
+    actorId: int("actorId").notNull(),
+    actorName: varchar("actorName", { length: 160 }).notNull(),
+    actorEmail: varchar("actorEmail", { length: 320 }),
+    action: mysqlEnum("action", [
+      "created",
+      "updated",
+      "deleted",
+      "event_added",
+      "bulk_imported",
+    ]).notNull(),
+    summary: varchar("summary", { length: 500 }).notNull(),
+    details: text("details"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    shipmentIdx: index("shipment_audit_shipment_idx").on(table.shipmentId),
+    actorIdx: index("shipment_audit_actor_idx").on(table.actorId),
+    createdIdx: index("shipment_audit_created_idx").on(table.createdAt),
+  })
+);
+
 export const quotes = mysqlTable(
   "quotes",
   {

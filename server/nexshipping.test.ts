@@ -86,6 +86,13 @@ describe("nexshipping public procedures", () => {
     });
   });
 
+  it("exposes shipment audit activity to authenticated admins", async () => {
+    const caller = appRouter.createCaller(createContext(adminUser));
+    const result = await caller.admin.overview();
+    expect(result).toHaveProperty("auditLogs");
+    expect(Array.isArray(result.auditLogs)).toBe(true);
+  });
+
   it("rejects empty bulk imports before database work", async () => {
     const caller = appRouter.createCaller(createContext(adminUser));
     await expect(

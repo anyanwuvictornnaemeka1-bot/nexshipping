@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   FileSpreadsheet,
+  History,
   Inbox,
   LogOut,
   MessageSquare,
@@ -380,6 +381,44 @@ export default function AdminPage() {
                       <EmptyState label="No shipments have been added" />
                     )}
                   </div>
+                </div>
+              </Panel>
+              <Panel
+                title="Shipment audit activity"
+                action={() => overview.refetch()}
+                actionLabel="Refresh"
+              >
+                <div className="grid gap-3">
+                  {(data?.auditLogs ?? []).slice(0, 12).map(log => (
+                    <div
+                      key={log.id}
+                      className="flex flex-col gap-2 rounded-xl border border-[#e1e7ed] p-4 sm:flex-row sm:items-start sm:justify-between"
+                    >
+                      <div className="flex min-w-0 gap-3">
+                        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#eaf0f3] text-[#13715a]">
+                          <History className="size-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">{log.summary}</p>
+                          <p className="mt-1 text-xs text-[#617083]">
+                            Shipment #{log.shipmentId} · {log.actorName}
+                            {log.actorEmail ? ` · ${log.actorEmail}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:gap-1">
+                        <span className="rounded-full bg-[#fff0e9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#c94714]">
+                          {log.action.replaceAll("_", " ")}
+                        </span>
+                        <span className="text-[11px] text-[#8c9aa8]">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {!data?.auditLogs?.length && (
+                    <EmptyState label="No shipment changes recorded yet" />
+                  )}
                 </div>
               </Panel>
             </div>

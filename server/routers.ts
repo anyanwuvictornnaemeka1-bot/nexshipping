@@ -14,6 +14,7 @@ import {
   getAdminOverview,
   getPublishedContent,
   getShipmentCount,
+  recordShipmentAuditLog,
   subscribeToNewsletter,
   updateContactStatus,
   updateQuoteStatus,
@@ -42,6 +43,15 @@ const shipmentInput = z.object({
   serviceLevel: z.string().trim().max(80).optional(),
   weight: z.string().trim().max(80).optional(),
   customerEmail: email.optional(),
+});
+const auditActor = (user: {
+  id: number;
+  name: string | null;
+  email: string | null;
+}) => ({
+  actorId: user.id,
+  actorName: user.name ?? "Nexshipping admin",
+  actorEmail: user.email ?? undefined,
 });
 
 export const appRouter = router({
@@ -143,13 +153,20 @@ export const appRouter = router({
       }),
     createShipment: adminProcedure
       .input(shipmentInput)
-      .mutation(async ({ input }) => ({
-        id: await createShipment({
+      .mutation(async ({ input, ctx }) => {
+        const id = await createShipment({
           ...input,
           status: input.status ?? "booked",
-        }),
-        success: true,
-      })),
+        });
+        await recordShipmentAuditLog({
+          shipmentId: Number(id),
+          ...auditActor(ctx.user),
+          action: "created",
+          summary: `Created shipment ${input.trackingNumber}`,
+          details: JSON.stringify(input),
+        });
+        return { id, success: true };
+      }),
     updateShipment: adminProcedure
       .input(
         z.object({
@@ -157,27 +174,51 @@ export const appRouter = router({
           data: shipmentInput.partial(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         await updateShipment(input.id, input.data);
+        await recordShipmentAuditLog({
+          shipmentId: input.id,
+          ...auditActor(ctx.user),
+          action: "updated",
+          summary: `Updated shipment fields: ${Object.keys(input.data).join(", ")}`,
+          details: JSON.stringify(input.data),
+        });
         return { success: true };
       }),
     deleteShipment: adminProcedure
       .input(z.object({ id: z.number().int().positive() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        await recordShipmentAuditLog({
+          shipmentId: input.id,
+          ...auditActor(ctx.user),
+          action: "deleted",
+          summary: `Deleted shipment #${input.id}`,
+        });
         await deleteShipment(input.id);
         return { success: true };
       }),
     bulkCreateShipments: adminProcedure
       .input(z.object({ shipments: z.array(shipmentInput).min(1).max(500) }))
-      .mutation(async ({ input }) => ({
-        ids: await createShipments(
+      .mutation(async ({ input, ctx }) => {
+        const ids = await createShipments(
           input.shipments.map(shipment => ({
             ...shipment,
             status: shipment.status ?? "booked",
           }))
-        ),
-        success: true,
-      })),
+        );
+        await Promise.all(
+          ids.map((id, index) =>
+            recordShipmentAuditLog({
+              shipmentId: Number(id),
+              ...auditActor(ctx.user),
+              action: "bulk_imported",
+              summary: `Imported shipment ${input.shipments[index]?.trackingNumber ?? id}`,
+              details: JSON.stringify({ source: "csv", row: index + 1 }),
+            })
+          )
+        );
+        return { ids, success: true };
+      }),
     addShipmentEvent: adminProcedure
       .input(
         z.object({
@@ -189,10 +230,21 @@ export const appRouter = router({
           eventTime: z.date(),
         })
       )
-      .mutation(async ({ input }) => ({
-        id: await addShipmentEvent(input),
-        success: true,
-      })),
+      .mutation(async ({ input, ctx }) => {
+        const id = await addShipmentEvent(input);
+        await recordShipmentAuditLog({
+          shipmentId: input.shipmentId,
+          ...auditActor(ctx.user),
+          action: "event_added",
+          summary: `Added event: ${input.title}`,
+          details: JSON.stringify({
+            status: input.status,
+            location: input.location,
+            eventTime: input.eventTime,
+          }),
+        });
+        return { id, success: true };
+      }),
   }),
 });
 

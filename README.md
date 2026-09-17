@@ -13,6 +13,7 @@ Nexshipping is a production-oriented global shipping and logistics website built
 - Admin shipment workspace with a protected create-shipment form and inline event form for status, milestone title, location, event time, and description. Adding an event also updates the shipment’s current status, location, and last-update timestamp used by public tracking.
 - Full shipment lifecycle controls with inline editing, deletion with event-history cleanup, and CSV bulk import for up to 500 shipments per upload.
 - Event locations use the configured Google Places autocomplete integration, so operators can select a canonical city, port, or facility name instead of typing an ambiguous location.
+- Shipment audit trail that records the authenticated admin, action type, timestamp, summary, and structured details for creates, edits, deletions, event additions, and CSV imports.
 - SEO metadata, Open Graph tags, `robots.txt`, and sitemap configuration.
 
 ## Local setup
@@ -50,6 +51,8 @@ For a real production rollout, operations should add shipment and shipment-event
 From `/admin`, choose **Shipments** to create a shipment. After it is listed, choose **Update** beside a shipment to add a milestone. The event form supports the full shipment status lifecycle: booked, in transit, customs clearance, out for delivery, delivered, and exception. The server enforces admin authorization and validates all fields before persistence.
 
 For bulk import, upload a CSV containing `trackingNumber`, `origin`, `destination`, and `shipmentType` columns. Optional columns are `status`, `currentLocation`, `estimatedDelivery` (`YYYY-MM-DD`), `serviceLevel`, `weight`, and `customerEmail`. Imports are capped at 500 rows and invalid files are rejected before the database mutation runs.
+
+The **Shipment audit activity** panel in `/admin` shows the latest 100 recorded changes. Audit records retain a snapshot of the admin’s name and email so the history remains attributable even if the user profile changes later; deletion entries remain available after the shipment itself is removed.
 
 ## Admin setup
 

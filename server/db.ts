@@ -6,6 +6,7 @@ import {
   InsertUser,
   newsletterSubscribers,
   quotes,
+  shipmentAuditLogs,
   shipmentEvents,
   shipments,
   testimonials,
@@ -133,8 +134,15 @@ export async function getPublishedContent() {
 
 export async function getAdminOverview() {
   const db = await getDb();
-  if (!db) return { shipments: [], quotes: [], contacts: [], subscribers: 0 };
-  const [shipmentRows, quoteRows, contactRows, subscriberRows] =
+  if (!db)
+    return {
+      shipments: [],
+      quotes: [],
+      contacts: [],
+      subscribers: 0,
+      auditLogs: [],
+    };
+  const [shipmentRows, quoteRows, contactRows, subscriberRows, auditRows] =
     await Promise.all([
       db.select().from(shipments).orderBy(desc(shipments.updatedAt)).limit(25),
       db.select().from(quotes).orderBy(desc(quotes.createdAt)).limit(25),
@@ -143,13 +151,28 @@ export async function getAdminOverview() {
         .select({ count: sql<number>`count(*)` })
         .from(newsletterSubscribers)
         .where(eq(newsletterSubscribers.isActive, true)),
+      db
+        .select()
+        .from(shipmentAuditLogs)
+        .orderBy(desc(shipmentAuditLogs.createdAt))
+        .limit(100),
     ]);
   return {
     shipments: shipmentRows,
     quotes: quoteRows,
     contacts: contactRows,
     subscribers: Number(subscriberRows[0]?.count ?? 0),
+    auditLogs: auditRows,
   };
+}
+
+export async function recordShipmentAuditLog(
+  input: typeof shipmentAuditLogs.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not configured");
+  const result = await db.insert(shipmentAuditLogs).values(input);
+  return result[0].insertId;
 }
 
 export async function updateQuoteStatus(
