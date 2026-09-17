@@ -35,5 +35,5 @@
 
 - [x] QA report written
 - [x] Tests, audit, build, smoke, and formatting checks passed
-- [ ] Commit and GitHub push pending
-- [ ] WebDev checkpoint pending
+- [x] Commit and GitHub push completed
+- [x] WebDev checkpoint completed
