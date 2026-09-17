@@ -119,4 +119,4 @@ The active environment’s short JWT secret is a deployment blocker by design. D
 
 ## Commit and checkpoint identifiers
 
-The source commit hash and final WebDev checkpoint version are added to this report immediately after the verified GitHub commit and checkpoint operations complete.
+The audited source, migration, tests, tooling, and report were committed and pushed to GitHub in commit [`a8eea44`](https://github.com/anyanwuvictornnaemeka1-bot/nexshipping/commit/a8eea44). The final WebDev checkpoint version is recorded here after the checkpoint operation completes.
