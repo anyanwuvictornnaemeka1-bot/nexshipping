@@ -1,22 +1,24 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch } from "wouter";
+import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { SiteLayout } from "./components/SiteLayout";
-import AdminPage from "./pages/AdminPage";
-import {
-  AboutPage,
-  ContactPage,
-  FAQPage,
-  LegalPage,
-  NewsPage,
-  ServicesPage,
-} from "./pages/ContentPages";
-import Home from "./pages/Home";
-import NotFound from "./pages/NotFound";
-import QuotePage from "./pages/QuotePage";
-import TrackPage from "./pages/TrackPage";
+
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const Home = lazy(() => import("./pages/Home"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const QuotePage = lazy(() => import("./pages/QuotePage"));
+const TrackPage = lazy(() => import("./pages/TrackPage"));
+const CustomerDashboardPage = lazy(() => import("./pages/CustomerDashboardPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const AboutPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).AboutPage }));
+const ContactPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).ContactPage }));
+const FAQPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).FAQPage }));
+const NewsPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).NewsPage }));
+const ServicesPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).ServicesPage }));
+const LegalPage = lazy(async () => ({ default: (await import("./pages/ContentPages")).LegalPage }));
 
 function PublicRouter() {
   return (
@@ -49,10 +51,20 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
-          <Switch>
-            <Route path="/admin" component={AdminPage} />
-            <Route component={PublicRouter} />
-          </Switch>
+          <Suspense
+            fallback={
+              <div className="grid min-h-screen place-items-center bg-[#071b2f] text-white">
+                <div className="size-8 animate-spin rounded-full border-2 border-white/20 border-t-[#ff8358]" />
+              </div>
+            }
+          >
+            <Switch>
+              <Route path="/login" component={LoginPage} />
+              <Route path="/dashboard" component={CustomerDashboardPage} />
+              <Route path="/admin" component={AdminPage} />
+              <Route component={PublicRouter} />
+            </Switch>
+          </Suspense>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

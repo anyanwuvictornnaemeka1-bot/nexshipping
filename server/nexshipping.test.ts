@@ -117,4 +117,11 @@ describe("nexshipping public procedures", () => {
       caller.admin.bulkCreateShipments({ shipments: [] })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("protects the customer dashboard from unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(createContext());
+    await expect(caller.customer.dashboard()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
 });

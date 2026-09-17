@@ -166,6 +166,26 @@ export async function getAdminOverview() {
   };
 }
 
+export async function getCustomerDashboard(email: string) {
+  const db = await getDb();
+  if (!db || !email) return { shipments: [], quotes: [] };
+  const [shipmentRows, quoteRows] = await Promise.all([
+    db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.customerEmail, email))
+      .orderBy(desc(shipments.updatedAt))
+      .limit(50),
+    db
+      .select()
+      .from(quotes)
+      .where(eq(quotes.email, email))
+      .orderBy(desc(quotes.createdAt))
+      .limit(50),
+  ]);
+  return { shipments: shipmentRows, quotes: quoteRows };
+}
+
 export async function recordShipmentAuditLog(
   input: typeof shipmentAuditLogs.$inferInsert
 ) {
@@ -248,7 +268,7 @@ export async function getShipmentCount() {
   const db = await getDb();
   if (!db) return 0;
   const result = await db
-    .select({ count: sql<number>`count(*)` })
+    .select({ count: sql<number>`count(*)` as any })
     .from(shipments);
   return Number(result[0]?.count ?? 0);
 }

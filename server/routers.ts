@@ -2,7 +2,12 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, publicProcedure, router } from "./_core/trpc";
+import {
+  adminProcedure,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from "./_core/trpc";
 import {
   addShipmentEvent,
   createContact,
@@ -11,6 +16,7 @@ import {
   createShipment,
   deleteShipment,
   findShipmentByTrackingNumber,
+  getCustomerDashboard,
   getAdminOverview,
   getPublishedContent,
   getShipmentCount,
@@ -79,6 +85,11 @@ export const appRouter = router({
     shipmentCount: publicProcedure.query(async () => ({
       count: await getShipmentCount(),
     })),
+  }),
+  customer: router({
+    dashboard: protectedProcedure.query(async ({ ctx }) =>
+      getCustomerDashboard(ctx.user.email ?? "")
+    ),
   }),
   quote: router({
     create: publicProcedure

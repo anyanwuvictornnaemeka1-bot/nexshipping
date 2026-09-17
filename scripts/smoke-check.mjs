@@ -10,6 +10,8 @@ const routes = [
   "/news",
   "/privacy",
   "/terms",
+  "/login",
+  "/dashboard",
   "/admin",
 ];
 for (const route of routes) {

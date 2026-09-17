@@ -17,9 +17,9 @@ import { PageIntro, SectionEyebrow } from "@/components/SiteLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
-const PORT_IMAGE = "/manus-storage/port_b4df33f8.jpg";
-const WAREHOUSE_IMAGE = "/manus-storage/warehouse_213ef315.jpg";
-const AIR_IMAGE = "/manus-storage/air-cargo_249d10c5.jpg";
+const PORT_IMAGE = "/manus-storage/nexshipping-port_2f7bcd6c.jpg";
+const WAREHOUSE_IMAGE = "/manus-storage/nexshipping-warehouse_6a828de0.jpg";
+const AIR_IMAGE = "/manus-storage/nexshipping-air-cargo_0476670c.jpg";
 
 export function ServicesPage() {
   const services = [

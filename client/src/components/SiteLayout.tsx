@@ -151,6 +151,9 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
               <Link href="/contact" className="hover:text-white">
                 Contact team
               </Link>
+              <Link href="/login" className="hover:text-white">
+                Customer portal
+              </Link>
               <Link href="/admin" className="hover:text-white">
                 Admin portal
               </Link>
