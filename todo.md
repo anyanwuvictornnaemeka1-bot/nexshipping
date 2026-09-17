@@ -51,4 +51,4 @@
 - [x] Write final audit report.
 - [x] Commit all source, migration, smoke-test, and documentation fixes.
 - [x] Push the verified commit to GitHub.
-- [ ] Save the final WebDev checkpoint after the first audited delivery.
+- [x] Save the final WebDev checkpoint after the first audited delivery (`a017d393`).
